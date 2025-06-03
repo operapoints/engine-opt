@@ -1,9 +1,11 @@
 #include "jet_calc.h"
 
 #define _USE_MATH_DEFINES
+#define JET_CALC_DEBUG
 #include <cmath>
 #include <initializer_list>
 #include <utility>
+#include <sstream>
 
 
 using namespace pagmo;
@@ -124,57 +126,36 @@ std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{}
 // computes the axial velocity
 // Parameters: mass flow, stag density, stag temp,
 // tangential velocity, gamma, area
-// Cost is around 200ns a pop
+// Cost is around 200ns
 double problem_jet_calc::compute_u_a(double m_dot,
                                     double rho_t,
                                     double T_t,
                                     double u_th,
                                     double gam,
                                     double A) const{
-    // The bisect method might raise the boost::math::evaluation_error if the input is non physical.
-    // If this happens, catch it in the optimization loop by returning some large penalty.
-    double C_p = 287.0 * (gam/(gam-1));
-    // Accuracy tolerance
-    double eps = 1e-6;
-    // a_max is the maximum possible speed of sound, corresponding to no axial velocity.
-    // Since only supersonic solutions are necessary, this is used as the upper bound for numerical solution.
-    double a_max = std::pow(gam*287.0*(T_t - (u_th*u_th)/(2*C_p)),0.5);
-    auto compute_u_a_residual = [=](double u_a){
-        double T_s = T_t - ((std::pow(u_a,2)+std::pow(u_th,2))/(2*C_p));
-        double tau = T_t/T_s;
-        return m_dot - u_a*A*rho_t*std::pow(tau,(1/(1-gam)));
-    };
-    // For some reason if a NaN comes up at any point bisect will hang indefinitely
-    // Max iteration limit is set to 50 because of this
-    uintmax_t max_iter = 50;
-    auto results = boost::math::tools::bisect(compute_u_a_residual, 
-        0.0, // Lower bound
-        a_max, // Upper bound
-        [=](auto lambda_arg_1, auto lambda_arg_2){return std::abs(lambda_arg_1-lambda_arg_2)<eps;},
-        max_iter); // Termination lambda
-    double u_a_guess = (results.first + results.second)/2;
-    double T_s_guess = T_t - (u_th*u_th + u_a_guess*u_a_guess)/(2*C_p);
-    double M_guess = std::pow((u_th*u_th + u_a_guess*u_a_guess)/(gam*287.0*T_s_guess),0.5);
-    // If the found solution is supersonic, try again with the upper bound restricted
-    // To the lower solution
-    // The idea here is that if the flow has solutions, there is no reason to design for the
-    // supersonic case due to resulting losses
-    if(M_guess>1){
-        auto results = boost::math::tools::bisect(compute_u_a_residual, 
-            0.0, // Lower bound
-            u_a_guess - eps, // Upper bound; subtract eps so that a sign change is guaranteed
-            [=](auto lambda_arg_1, auto lambda_arg_2){return std::abs(lambda_arg_1-lambda_arg_2)<eps;},
-            max_iter); // Termination lambda
-        double u_a = (results.first+results.second) / 2;
+    try{
+        double C_p = 287.0 * (gam/(gam-1));
+        // Accuracy tolerance
+        double eps = 1e-6;
+        // Point at which 
+        double u_a_max = std::pow(((gam-1)*rho_t*(2*C_p*T_t-(u_th*u_th)))/((1+gam)*rho_t),0.5);
+        auto compute_u_a_residual = [=](double u_a)->std::tuple<double,double>{
+            double T_s = T_t - ((std::pow(u_a,2)+std::pow(u_th,2))/(2*C_p));
+            double tau = T_t/T_s;
+            double u_a_residual = m_dot - u_a*A*rho_t*std::pow(tau,(1/(1-gam)));
+            double D_u_a_residual = (A*rho_t*(2*C_p*(-1+gam)*T_t-(1+gam)*std::pow(u_a,2)-(-1+gam)*std::pow(u_th,2))*
+                                    std::pow(T_t/(T_t-(std::pow(u_a,2)+std::pow(u_th,2))/(2.*C_p)),1/(1-gam)))/
+                                    ((-1+gam)*(-2*C_p*T_t+std::pow(u_a,2)+std::pow(u_th,2)));
+            return {u_a_residual,D_u_a_residual};
+        };
+        int digits = 8;
+        std::uintmax_t max_iter = 50;
+        double u_a = boost::math::tools::newton_raphson_iterate(compute_u_a_residual, 0., 0., u_a_max, digits, max_iter);
         if (std::isnan(u_a) || std::isinf(u_a)){
-            throw boost::math::evaluation_error("Computed u_a value was inf or nan");
+            return static_cast<double>(NAN);
         }
         return u_a;
-    // If the original solution is good, return it
-    }else{
-        if (std::isnan(u_a_guess) || std::isinf(u_a_guess)){
-            throw boost::math::evaluation_error("Computed u_a value was inf or nan");
-        }
-        return u_a_guess;
+    }catch(boost::math::evaluation_error){
+        return static_cast<double>(NAN);
     }
 }
