@@ -85,7 +85,6 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         // Turbine constraints
 
         // Nozzle
-        constexpr const double& Ps_6 = Ps_0;
         double Ts_6 = T_5*std::pow(Ps_6/P_5,(gam_h-1)/gam_h);
         double a_6 = std::pow(gam_h*R*Ts_6,0.5);
         double u_6 = a_6*std::pow((2/(gam_h-1))*(std::pow((P_5/Ps_6),(gam_h-1)/gam_h)-1),0.5);
@@ -133,11 +132,11 @@ double problem_jet_calc::compute_u_a(double m_dot,
                                     double u_th,
                                     double gam,
                                     double A) const{
-    try{
+    // For now, if this ever comes up in optimizer runs, try to find a way to handle this without relying on catching
+    // try{
         double C_p = 287.0 * (gam/(gam-1));
-        // Accuracy tolerance
-        double eps = 1e-6;
-        // Point at which 
+        // Positive point at which the derivative is zero, the subsonic solution
+        // will always be less than this so it is used as the upper bound
         double u_a_max = std::pow(((gam-1)*rho_t*(2*C_p*T_t-(u_th*u_th)))/((1+gam)*rho_t),0.5);
         auto compute_u_a_residual = [=](double u_a)->std::tuple<double,double>{
             double T_s = T_t - ((std::pow(u_a,2)+std::pow(u_th,2))/(2*C_p));
@@ -151,11 +150,12 @@ double problem_jet_calc::compute_u_a(double m_dot,
         int digits = 8;
         std::uintmax_t max_iter = 50;
         double u_a = boost::math::tools::newton_raphson_iterate(compute_u_a_residual, 0., 0., u_a_max, digits, max_iter);
-        if (std::isnan(u_a) || std::isinf(u_a)){
+        // Error checking
+        if (std::abs(std::get<0>(compute_u_a_residual(u_a))-0)>1e-6 || std::isnan(u_a) || std::isinf(u_a)){
             return static_cast<double>(NAN);
         }
         return u_a;
-    }catch(boost::math::evaluation_error){
-        return static_cast<double>(NAN);
-    }
+    // }catch(boost::math::evaluation_error){
+        // return static_cast<double>(NAN);
+    // }
 }
