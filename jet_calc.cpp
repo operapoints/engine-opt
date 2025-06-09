@@ -10,10 +10,10 @@
 using namespace pagmo;
 
 vector_double::size_type problem_jet_calc::get_nec() const{
-    return auto(0);
+    return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return auto(0);
+    return 19;
 }
 
 // Calculates the fitness function and associated constraints,
@@ -54,15 +54,12 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         double spec_speed_C = std::pow(phi_C,0.5)/std::pow(psi_C,0.75);
         double spec_dia_C = std::pow(psi_C,0.25)/std::pow(phi_C,0.5);
         // The expression for the cordier line is based on the compressor cordier line at https://manual.cfturbo.com/en/index.html?cordier.html
-        double con_cordier_compressor = is_cordier(spec_speed_C, spec_dia_C)?-1:1;
-
-        // TODO: Set phi and psi constraints
-
+        double con_cordier_compressor = is_cordier(spec_speed_C, spec_dia_C)?-1:1;// The compressor must be in range of the Cordier line
         double M_Ci_tip = std::pow((u_i*u_i + omega*omega*R_Cit*R_Cit)/(gam_c*R*Ts_2),0.5);
-        double con_M_Ci_tip = M_Ci_tip - 0.8;
+        double con_M_Ci_tip = M_Ci_tip - 0.8;// Mach at compressor inlet less than 0.8
         double beta_Ci_tip = (180/M_PI)*std::atan((omega*R_Cit)/u_i);
-        double con_beta_Ci_tip = beta_Ci_tip - 70;
-        double u_Coth_STAT = (C_pc*D_T_C)/(omega*R_Com);// Calculated from Euler work eqn
+        double con_beta_Ci_tip = beta_Ci_tip - 70;// Inlet blade angle less than 70 degrees
+        double u_Coth_STAT = (C_pc*D_T_C)/(omega*R_Com);
         double u_Coth_ROT = u_Coth_STAT - (omega*R_Com);
         double u_Coa = compute_u_a(m_dot,(P_3/(R*T_3)), T_3, u_Coth_STAT, gam_c, A_Co);
         if(std::isnan(u_Coa)){
@@ -72,16 +69,24 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         double u_Co_ROT = std::pow((u_Coth_STAT-(omega*R_Com))*(u_Coth_STAT-(omega*R_Com)) + u_Coa*u_Coa,0.5);
         double u_Co_STAT = std::pow(u_Coth_STAT*u_Coth_STAT + u_Coa*u_Coa,0.5);
         double u_Ci_ROT = std::pow((u_i*u_i + omega*omega*R_Cit*R_Cit),0.5);
-        double Diff_C = 1 - (u_Co_ROT/u_Ci_ROT)+u_Coth_STAT/(2*sigma_C);// Lieblein diffusion factor
-        double con_Diff_C = Diff_C - 0.55;
-        double beta_Co = (180/M_PI)*std::atan(-u_Coth_ROT/u_Coa);// u_Coth_ROT is negative because the angle is defined as positive in the direction opposing rotation
+        double Diff_C = 1 - (u_Co_ROT/u_Ci_ROT)+u_Coth_STAT/(2*sigma_C);
+        double con_Diff_C = Diff_C - 0.55;// Lieblein diffusion factor less than 0.55
+        // u_Coth_ROT is negative because the angle is defined as positive in the direction opposing rotation
+        double beta_Co = (180/M_PI)*std::atan(-u_Coth_ROT/u_Coa);
         double con_beta_Co = beta_Co - 60; // Compressor blade exit angle below 40 degrees
         double Ts_3 = T_3 - (u_Co_STAT*u_Co_STAT)/(2*C_pc);
         double a_3 = std::pow(gam_c*R*Ts_3, 0.5);
         double M_Co_ROT = u_Co_ROT/a_3;
-        double con_M_Co_ROT = M_Co_ROT - 0.8;
+        double con_M_Co_ROT = M_Co_ROT - 0.8;// Compressor exit relative Mach less than 0.8
         double M_Co_STAT = std::pow((u_Coa*u_Coa + u_Coth_STAT*u_Coth_STAT)/(gam_c*R*Ts_3),0.5);
-        double con_M_Co_STAT = M_Co_STAT - 0.8;
+        double con_M_Co_STAT = M_Co_STAT - 0.8;// Compressor diffuser inlet Mach less than 0.8
+        double sigma_max_Ci = 0.5*omega*omega*rho_C*(R_Cit*R_Cit - R_Cih*R_Cih);
+        double com_sigma_max_Ci = FOS_C * sigma_max_Ci - sigma_max_C;// FOS at compressor inlet blade root
+        double R_Coh = R_Com - (A_Co/(4*M_PI*R_Com));
+        double R_Cot = R_Com + (A_Co/(4*M_PI*R_Com));
+        double sigma_max_Co = 0.5*omega*omega*rho_C*(R_Cot*R_Cot - R_Coh*R_Coh);
+        double com_sigma_max_Co = FOS_C * sigma_max_Co - sigma_max_C;// FOS at compressor outlet blade root
+
 
 
         // Combustor
@@ -134,6 +139,12 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         double R_Tot = R_Tom + A_To/(4*M_PI*R_Tom);
         double M_Tom = std::pow((u_Toa*u_Toa + omega*omega*R_Tot*R_Tot)/(gam_h*R*Ts_To),0.5);
         double con_M_Tom = M_Tom - 0.8; // Relative Mach at turbine exit less than 0.8
+        double sigma_max_Ti = 0.5*omega*omega*rho_C*(R_Tit*R_Tit - R_Tih*R_Tih);
+        double com_sigma_max_Ti = FOS_T * sigma_max_Ti - sigma_max_T;// FOS at compressor inlet blade root
+        double R_Toh = R_Tom - A_To/(4*M_PI*R_Tom);
+        double sigma_max_To = 0.5*omega*omega*rho_C*(R_Tot*R_Tot - R_Toh*R_Toh);
+        double com_sigma_max_To = FOS_T * sigma_max_To - sigma_max_T;// FOS at compressor inlet blade root
+
 
 
         // Nozzle
@@ -143,8 +154,26 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         double F = m_dot*((1+f)*u_6 - u_0);
         //Calculate objective
         double Isp = (F/(m_dot*f*9.8066));
-
-        vector_double ret = {Isp};
+        vector_double ret = {Isp, 
+            con_beta_Ci_tip, 
+            con_beta_Co, 
+            con_beta_NGV, 
+            con_beta_Tim, 
+            con_beta_Tom, 
+            con_cordier_compressor, 
+            con_Diff_C, 
+            con_DoR, 
+            con_M_Ci_tip, 
+            con_M_Co_ROT, 
+            con_M_Co_STAT, 
+            con_M_NGVo, 
+            con_M_Ti, 
+            con_M_Tom, 
+            con_phi_T, 
+            con_psi_T, 
+            con_T_width, 
+            con_turbine_diffusion, 
+            con_turbine_outlet_width};
         // A physically impossible engine will usually result in a bunch of NaNs,
         // and bad inputs might give Inf due to division by zero.
         // If this happens, return a big penalty
@@ -176,8 +205,8 @@ inline bool problem_jet_calc::is_cordier(double sigma, double delta) const{
     if(sigma>=0.8 && sigma < 2.5){
         ideal_delta = 1.61299*std::pow(sigma, -0.23543);
     }
-    min_delta = 0.8 * ideal_delta;
-    max_delta = 1.25 * ideal_delta;
+    min_delta = 0.9 * ideal_delta;
+    max_delta = 1.1 * ideal_delta;
     return (delta <= max_delta && delta >= min_delta);
 }
 
