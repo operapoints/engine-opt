@@ -16,6 +16,25 @@ vector_double::size_type problem_jet_calc::get_nic() const{
     return 19;
 }
 
+std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
+    // auto omega = x[0]; // rad/s - shaft speed
+    // auto u_i = x[1];   // m/s   - compressor inlet velocity
+    // auto T_4 = x[2];   // K     - combustor exit total temp
+    // auto R_Cih = x[3]; // m     - compressor inlet hub radius
+    // auto R_Cit = x[4]; // m     - compressor inlet tip radius
+    // auto A_Co = x[5];  // m^2   - compressor outlet area
+    // auto R_Com = x[6]; // m     - compressor outlet meanline radius
+    // auto D_T_C = x[7]; // K     - compressor total temperature change
+    // auto R_Tih = x[8]; // m     - turbine inlet hub radius
+    // auto R_Tit = x[9]; // m     - Turbine inlet tip radius
+    // auto A_To = x[10]; // m^2   - Turbine outlet area
+    // auto R_Tom = x[11];// m     - Turbine exit meanline velocity
+    vector_double lb = {0,0,600,0.003,0.003,0.0001,0,0,0.003,0.003,0.0001,0.003};
+    vector_double ub = {20000,300,1100,0.07,0.07,0.05,0.06,300,0.07,0.07,0.05,0.06};
+    std::pair<vector_double, vector_double> ret(lb,ub);
+    return ret;
+}
+
 // Calculates the fitness function and associated constraints,
 // in the form {fitness, eq..., ineq...}
 vector_double problem_jet_calc::fitness(vector_double &x) const{
@@ -129,7 +148,7 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         double con_M_Ti = M_Ti - 0.8;// Turbine inlet mach less than 0.8
         double beta_Tim = (180/M_PI)*std::atan(u_Tith_ROT/u_Tia);
         double con_beta_Tim = beta_Tim - 65;// Turbine inlet angle less than 65 degrees
-        double u_Toa = compute_u_a(m_dot, P_5/(R*T_5), T_5, omega*R_Tom, gam_h, A_To);
+        double u_Toa = compute_u_a(m_dot * (1+f), P_5/(R*T_5), T_5, omega*R_Tom, gam_h, A_To);
         double beta_Tom = (180/M_PI)*std::atan((omega*R_Tom)/u_Toa);
         double con_beta_Tom = beta_Tom - 65; // Turbine outlet meridional blade angle less than 65 degrees - this shouldn't be active
         double con_T_width = 0.009 - (R_Tit - R_Tih);// Turbine inlet annulus width greater than 9mm
@@ -219,8 +238,6 @@ inline bool problem_jet_calc::invalid_ret(vector_double &x) const{
     }
     return false;
 }
-
-std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{}
 
 // Utility
 // Given a 6D double array describing adiabatic flow in a duct,
