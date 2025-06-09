@@ -56,7 +56,7 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         double P_0 = Ps_0*std::pow((T_0/Ts_0),(gam_c/(gam_c-1)));
         // Duct
         double Ts_2 = T_0 - ((u_i*u_i)/(2*C_pc));
-        double Ps_2 = std::pow((Ts_2/T_0),(gam_c/(gam_c-1)));
+        double Ps_2 = P_0 * std::pow((Ts_2/T_0),(gam_c/(gam_c-1)));
         double rhos_2 = Ps_2/(R*Ts_2);
         double A_Ci = M_PI*(R_Cit*R_Cit - R_Cih*R_Cih);
         double m_dot = rhos_2*u_i*A_Ci;
@@ -88,7 +88,7 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         double u_Co_ROT = std::pow((u_Coth_STAT-(omega*R_Com))*(u_Coth_STAT-(omega*R_Com)) + u_Coa*u_Coa,0.5);
         double u_Co_STAT = std::pow(u_Coth_STAT*u_Coth_STAT + u_Coa*u_Coa,0.5);
         double u_Ci_ROT = std::pow((u_i*u_i + omega*omega*R_Cit*R_Cit),0.5);
-        double Diff_C = 1 - (u_Co_ROT/u_Ci_ROT)+u_Coth_STAT/(2*sigma_C);
+        double Diff_C = 1 - (u_Co_ROT/u_Ci_ROT)+u_Coth_STAT/(2*sigma_C*u_Ci_ROT);
         double con_Diff_C = Diff_C - 0.55;// Lieblein diffusion factor less than 0.55
         // u_Coth_ROT is negative because the angle is defined as positive in the direction opposing rotation
         double beta_Co = (180/M_PI)*std::atan(-u_Coth_ROT/u_Coa);
@@ -117,7 +117,7 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         // Turbine constraints
         double A_Ti = M_PI*(R_Tit*R_Tit - R_Tih*R_Tih);
         double R_Tim = 0.5*(R_Tit+R_Tih);
-        double u_Tith_STAT = (C_ph)*D_T_T/(omega*R_Tim);
+        double u_Tith_STAT = (C_ph*(-1*D_T_T))/(omega*R_Tim);// Since D_T_T is negative, it has to be flipped to calculate the absolute NGV exit u_th
         double u_Tia = compute_u_a(m_dot*(1+f),P_3/(R*T_4), T_4, u_Tith_STAT, gam_h, A_Ti);
         if(std::isnan(u_Tia)){
             vector_double ret(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
@@ -129,7 +129,7 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         // It is calculated with reference to the turbine tip inlet speed. This is apparently the 
         // standard but might apply only to axial turbines where blade speed doesn't vary much axially
         double phi_T = u_Tia / (omega*R_Tit);
-        double psi_T = (C_ph*D_T_T) / (omega*omega*R_Tom*R_Tom);
+        double psi_T = (C_ph*(-D_T_T)) / (omega*omega*R_Tom*R_Tom);//D_T_T is flipped here also to follow work coefficient convention
         // Phi and psi constraints are for the smith chart for axial gas turbines in dixon and hall.
         // Smith believed that the losses were proportional to the average kinetic energy in the row,
         // and correlated this with empirically measured losses.
@@ -137,7 +137,7 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         double con_phi_T = std::abs(phi_T - (0.5*(min_phi_T+max_phi_T))) - (0.5*(max_phi_T - min_phi_T));// Flow coefficient in appropriate range
         double con_psi_T = std::abs(psi_T - (0.5*(min_psi_T+max_psi_T))) - (0.5*(max_psi_T - min_psi_T));// Loading coefficient in appropriate range
         double u_Ti_STAT = std::pow(u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia,0.5);
-        double D_Ts_NGV = (u_Ti_STAT*u_Ti_STAT) / (2*C_ph);
+        double D_Ts_NGV = -1*(u_Ti_STAT*u_Ti_STAT) / (2*C_ph);
         double Ts_Ti = T_4 - D_Ts_NGV;
         double DoR = 1 - (D_Ts_NGV/D_T_T);
         double con_DoR = std::abs(0.4 - DoR) - 0.1; // Degree of reaction of turbine between 0.3 and 0.5
@@ -149,18 +149,23 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         double beta_Tim = (180/M_PI)*std::atan(u_Tith_ROT/u_Tia);
         double con_beta_Tim = beta_Tim - 65;// Turbine inlet angle less than 65 degrees
         double u_Toa = compute_u_a(m_dot * (1+f), P_5/(R*T_5), T_5, omega*R_Tom, gam_h, A_To);
+        if(std::isnan(u_Toa)){
+            vector_double ret(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
+            return ret;
+        }
         double beta_Tom = (180/M_PI)*std::atan((omega*R_Tom)/u_Toa);
         double con_beta_Tom = beta_Tom - 65; // Turbine outlet meridional blade angle less than 65 degrees - this shouldn't be active
         double con_T_width = 0.009 - (R_Tit - R_Tih);// Turbine inlet annulus width greater than 9mm
-        double con_turbine_diffusion = u_Tia - u_Toa; // Flow must accelerate through turbine to avoid separation
+        // double con_turbine_diffusion = u_Tia - u_Toa; // Flow must accelerate through turbine to avoid separation
         double Ts_To = T_5 - (u_Toa*u_Toa)/(2*C_ph);
-        double con_turbine_outlet_width = 0.09 - A_To/(2*M_PI*R_Tom); // Turbine outlet width more than 9mm
+        double con_turbine_outlet_width = 0.009 - A_To/(2*M_PI*R_Tom); // Turbine outlet width more than 9mm
         double R_Tot = R_Tom + A_To/(4*M_PI*R_Tom);
         double M_Tom = std::pow((u_Toa*u_Toa + omega*omega*R_Tot*R_Tot)/(gam_h*R*Ts_To),0.5);
         double con_M_Tom = M_Tom - 0.8; // Relative Mach at turbine exit less than 0.8
         double sigma_max_Ti = 0.5*omega*omega*rho_C*(R_Tit*R_Tit - R_Tih*R_Tih);
         double com_sigma_max_Ti = FOS_T * sigma_max_Ti - sigma_max_T;// FOS at compressor inlet blade root
         double R_Toh = R_Tom - A_To/(4*M_PI*R_Tom);
+        double con_R_Toh = 0.004 - R_Toh;// Inner radius of turbine outlet must be at least 4mm
         double sigma_max_To = 0.5*omega*omega*rho_C*(R_Tot*R_Tot - R_Toh*R_Toh);
         double com_sigma_max_To = FOS_T * sigma_max_To - sigma_max_T;// FOS at compressor inlet blade root
 
@@ -172,7 +177,7 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         double u_6 = a_6*std::pow((2/(gam_h-1))*(std::pow((P_5/Ps_6),(gam_h-1)/gam_h)-1),0.5);
         double F = m_dot*((1+f)*u_6 - u_0);
         //Calculate objective
-        double Isp = (F/(m_dot*f*9.8066));
+        double Isp = -(F/(m_dot*f*9.8066));
         vector_double ret = {Isp, 
             con_beta_Ci_tip, 
             con_beta_Co, 
@@ -191,8 +196,9 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
             con_phi_T, 
             con_psi_T, 
             con_T_width, 
-            con_turbine_diffusion, 
-            con_turbine_outlet_width};
+            // con_turbine_diffusion, 
+            con_turbine_outlet_width,
+            con_R_Toh};
         // A physically impossible engine will usually result in a bunch of NaNs,
         // and bad inputs might give Inf due to division by zero.
         // If this happens, return a big penalty
@@ -268,7 +274,7 @@ double problem_jet_calc::compute_u_a(double m_dot,
         };
         int digits = 8;
         std::uintmax_t max_iter = 50;
-        double u_a = boost::math::tools::newton_raphson_iterate(compute_u_a_residual, 0., 0., u_a_max, digits, max_iter);
+        double u_a = boost::math::tools::newton_raphson_iterate(compute_u_a_residual, 0., 0.0001, u_a_max, digits, max_iter);
         // Error checking that 1. u_a is in fact a root and 2. u_a is not inf or nan
         if (std::abs(std::get<0>(compute_u_a_residual(u_a))-0)>1e-6 || std::isnan(u_a) || std::isinf(u_a)){
             return static_cast<double>(NAN);
