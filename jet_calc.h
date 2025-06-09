@@ -19,7 +19,7 @@ struct problem_jet_calc{
         static constexpr double C_pc = R*(gam_c/(gam_c-1));
         static constexpr double C_ph = R*(gam_h/(gam_h-1));
 
-        static constexpr double Ts_0 = 288.;
+        static constexpr double Ts_0 = 298.;
         static constexpr double Ps_0 = 101325.;
         static constexpr double Ps_6 = Ps_0;
         static constexpr double u_0 = 0.;
@@ -30,6 +30,11 @@ struct problem_jet_calc{
         static constexpr double eta_T = 0.75;
 
         static constexpr double sigma_C = 1.6;
+
+        static constexpr double min_phi_T = 0.4;
+        static constexpr double max_phi_T = 0.8;
+        static constexpr double min_psi_T = 1.0;
+        static constexpr double max_psi_T = 2.0;
         vector_double::size_type get_nec() const;
         vector_double::size_type get_nic() const;
         vector_double fitness(vector_double &x) const;
@@ -42,6 +47,7 @@ struct problem_jet_calc{
                         double gam,
                         double A) const;
         inline bool invalid_ret(vector_double& x) const;
+        inline bool is_cordier(double sigma, double delta) const;
 };
 
 #endif
