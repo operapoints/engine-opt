@@ -13,7 +13,7 @@ vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return 19;
+    return 20;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
@@ -30,7 +30,7 @@ std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
     // auto A_To = x[10]; // m^2   - Turbine outlet area
     // auto R_Tom = x[11];// m     - Turbine exit meanline velocity
     vector_double lb = {0,0,600,0.003,0.003,0.0001,0,0,0.003,0.003,0.0001,0.003};
-    vector_double ub = {20000,300,1100,0.07,0.07,0.05,0.06,300,0.07,0.07,0.05,0.06};
+    vector_double ub = {20000,300,1100,0.035,0.035,0.05,0.03,300,0.035,0.035,0.05,0.03};
     std::pair<vector_double, vector_double> ret(lb,ub);
     return ret;
 }
@@ -176,6 +176,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double a_6 = std::pow(gam_h*R*Ts_6,0.5);
         double u_6 = a_6*std::pow((2/(gam_h-1))*(std::pow((P_5/Ps_6),(gam_h-1)/gam_h)-1),0.5);
         double F = m_dot*((1+f)*u_6 - u_0);
+        double con_F = 70-F; // Thrust at least 70N
         //Calculate objective
         double Isp = -(F/(m_dot*f*9.8066));
         vector_double ret = {Isp, 
@@ -198,7 +199,8 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
             con_T_width, 
             // con_turbine_diffusion, 
             con_turbine_outlet_width,
-            con_R_Toh};
+            con_R_Toh,
+            con_F};
         // A physically impossible engine will usually result in a bunch of NaNs,
         // and bad inputs might give Inf due to division by zero.
         // If this happens, return a big penalty
