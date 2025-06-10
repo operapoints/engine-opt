@@ -37,7 +37,7 @@ std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
 
 // Calculates the fitness function and associated constraints,
 // in the form {fitness, eq..., ineq...}
-vector_double problem_jet_calc::fitness(vector_double &x) const{
+vector_double problem_jet_calc::fitness(const vector_double &x) const{
     auto omega = x[0]; // rad/s - shaft speed
     auto u_i = x[1];   // m/s   - compressor inlet velocity
     auto T_4 = x[2];   // K     - combustor exit total temp
@@ -212,7 +212,7 @@ vector_double problem_jet_calc::fitness(vector_double &x) const{
         return ret;
     }
 }
-
+// Calculates if a specific speed and specific work lie on the Cordier line
 inline bool problem_jet_calc::is_cordier(double sigma, double delta) const{
     double ideal_delta{};
     double min_delta{};

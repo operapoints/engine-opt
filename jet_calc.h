@@ -44,7 +44,7 @@ struct problem_jet_calc{
         static constexpr double FOS_C = 2;
         vector_double::size_type get_nec() const;
         vector_double::size_type get_nic() const;
-        vector_double fitness(vector_double &x) const;
+        vector_double fitness(const vector_double &x) const;
         std::pair<vector_double, vector_double> get_bounds() const;
     // private: 
         double compute_u_a(double m_dot,
