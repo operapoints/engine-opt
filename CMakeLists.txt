@@ -8,6 +8,7 @@ project(Engine_Opt LANGUAGES CXX)
 set(CMAKE_BUILD_TYPE Debug)
 
 # Look for an installation of pagmo in the system.
+list(APPEND CMAKE_PREFIX_PATH "./pagmo2")
 find_package(Pagmo REQUIRED)
 
 find_package(Boost REQUIRED)

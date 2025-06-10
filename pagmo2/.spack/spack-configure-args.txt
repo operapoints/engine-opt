@@ -1,0 +1,1 @@
+-DCMAKE_C_COMPILER=/home/operapoints/spack/opt/spack/linux-ubuntu24.04-skylake/gcc-12.3.0/openmpi-5.0.5-tqn3yek5w24uvqptliur6b7c5vtdosmf/bin/mpicc -DCMAKE_CXX_COMPILER=/home/operapoints/spack/opt/spack/linux-ubuntu24.04-skylake/gcc-12.3.0/openmpi-5.0.5-tqn3yek5w24uvqptliur6b7c5vtdosmf/bin/mpic++ -DBUILD_SHARED_LIBS:BOOL=ON
