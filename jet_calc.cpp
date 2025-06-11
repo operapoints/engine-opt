@@ -147,7 +147,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double M_Ti = std::pow((u_Tith_ROT*u_Tith_ROT + u_Tia*u_Tia)/(gam_h*R*Ts_Ti),0.5);
         double con_M_Ti = M_Ti - 0.8;// Turbine inlet mach less than 0.8
         double beta_Tim = (180/M_PI)*std::atan(u_Tith_ROT/u_Tia);
-        double con_beta_Tim = beta_Tim - 65;// Turbine inlet angle less than 65 degrees
+        double con_beta_Tim = std::abs(beta_Tim) - 65;// Turbine inlet angle less than 65 degrees
         double u_Toa = compute_u_a(m_dot * (1+f), P_5/(R*T_5), T_5, omega*R_Tom, gam_h, A_To);
         if(std::isnan(u_Toa)){
             vector_double ret(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
@@ -178,8 +178,8 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double F = m_dot*((1+f)*u_6 - u_0);
         double con_F = 70-F; // Thrust at least 70N
         //Calculate objective
-        double Isp = -(F/(m_dot*f*9.8066));
-        vector_double ret = {Isp, 
+        double Isp = (F/(m_dot*f*9.8066));
+        vector_double ret = {-(F/76.76 + Isp/2527.96), 
             con_beta_Ci_tip, 
             con_beta_Co, 
             con_beta_NGV, 
