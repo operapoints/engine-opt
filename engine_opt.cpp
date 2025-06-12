@@ -30,23 +30,23 @@ int main(){
     // Max Isp
     pagmo::vector_double x1 = {14906.3, 144.981, 981.448, 0.00301898, 0.0154312, 0.000510475, 0.029995, 108.346, 0.0155338, 0.0246004, 0.00111854, 0.0163724, };
     pjc_obj.fitness(x1);
-    // pagmo::problem pjc{pjc_obj};
-    // std::cout << pjc;
-    // algorithm algo{gaco(1000)};    
-    // archipelago archi(32u, algo, pjc, 2000u);
-    // archi.evolve(10);
-    // archi.wait_check();
+    pagmo::problem pjc{pjc_obj};
+    std::cout << pjc;
+    algorithm algo{gaco(1000)};    
+    archipelago archi(32u, algo, pjc, 2000u);
+    archi.evolve(10);
+    archi.wait_check();
 
-    // // 6 - Print the fitness of the best solution in each island.
-    // for (const auto &isl : archi) {
-    //     std::cout << isl.get_population().champion_f()[0] << '\n';
-    //     pagmo::vector_double ch_x = isl.get_population().champion_x();
-    //     std::cout << "{";
-    //     for(int i =0; i<ch_x.size(); i++){
-    //         std::cout << ch_x[i] << ", ";
-    //     }
-    //     std::cout << "}\n";
-    // }
+    // 6 - Print the fitness of the best solution in each island.
+    for (const auto &isl : archi) {
+        std::cout << isl.get_population().champion_f()[0] << '\n';
+        pagmo::vector_double ch_x = isl.get_population().champion_x();
+        std::cout << "{";
+        for(int i =0; i<ch_x.size(); i++){
+            std::cout << ch_x[i] << ", ";
+        }
+        std::cout << "}\n";
+    }
 
 
     // pagmo::vector_double x0 = {10183,127,1100,0.003,0.023,0.001,0.0250,65,0.02,0.03,0.002,0.025};
