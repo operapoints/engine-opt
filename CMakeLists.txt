@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.27)
 # The name of our project.
 project(Engine_Opt LANGUAGES CXX)
 
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
 
 # Look for an installation of pagmo in the system.
 list(APPEND CMAKE_PREFIX_PATH "./pagmo2")

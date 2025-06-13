@@ -32,9 +32,9 @@ int main(){
     pjc_obj.fitness(x1);
     pagmo::problem pjc{pjc_obj};
     std::cout << pjc;
-    algorithm algo{gaco(1000)};    
-    archipelago archi(32u, algo, pjc, 2000u);
-    archi.evolve(10);
+    algorithm algo{gaco(50000,63,1,0,0.01,10000,7,10000)};    
+    archipelago archi(32u, algo, pjc, 10000u);
+    archi.evolve(1);
     archi.wait_check();
 
     // 6 - Print the fitness of the best solution in each island.
