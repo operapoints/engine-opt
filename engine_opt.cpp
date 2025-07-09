@@ -25,14 +25,20 @@ int main(){
     // auto A_To = x[10]; // m^2   - Turbine outlet area
     // auto R_Tom = x[11];// m     - Turbine exit meanline velocity
     problem_jet_calc pjc_obj;
+    #ifdef EVAL_JET_CALC
     // Balance
-    pagmo::vector_double x0 = {11666.3, 138.623, 1099.9, 0.00300108, 0.0200928, 0.000985933, 0.029994, 64.4693, 0.0146342, 0.0307445, 0.00159195, 0.0173278, };
-    // Max Isp
-    pagmo::vector_double x1 = {14906.3, 144.981, 981.448, 0.00301898, 0.0154312, 0.000510475, 0.029995, 108.346, 0.0155338, 0.0246004, 0.00111854, 0.0163724, };
+    pagmo::vector_double x1 = {11475.8, 135.212, 1097.15, 0.00501128, 0.0206151, 0.00124931, 0.0299996, 62.201, 0.0154871, 0.0315287, 0.00210709, 0.0188079, };
+
+    pagmo::vector_double x2 = {15044.9, 133.092, 1099.95, 0.0050458, 0.0157997, 0.000431372, 0.0299949, 109.67, 0.0154697, 0.0244883, 0.00123787, 0.0158204, };
+    // Max thrust
+    pagmo::vector_double x3 = {14684.1, 125.722, 991.887, 0.00504372, 0.0164868, 0.000539293, 0.0299262, 104.827, 0.0155055, 0.0245546, 0.00169747, 0.0209158, };
     pjc_obj.fitness(x1);
+    pjc_obj.fitness(x2);
+    pjc_obj.fitness(x3);
+    #endif
     pagmo::problem pjc{pjc_obj};
     std::cout << pjc;
-    algorithm algo{gaco(50000,63,1,0,0.01,10000,7,10000)};    
+    algorithm algo{gaco(10000,63,1,0,0.01,1000,7,1000)};    
     archipelago archi(32u, algo, pjc, 10000u);
     archi.evolve(1);
     archi.wait_check();

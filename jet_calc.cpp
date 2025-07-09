@@ -28,8 +28,8 @@ std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
     // auto R_Tih = x[8]; // m     - turbine inlet hub radius
     // auto R_Tit = x[9]; // m     - Turbine inlet tip radius
     // auto A_To = x[10]; // m^2   - Turbine outlet area
-    // auto R_Tom = x[11];// m     - Turbine exit meanline velocity
-    vector_double lb = {0,0,600,0.003,0.003,0.0001,0,0,0.003,0.003,0.0001,0.003};
+    // auto R_Tom = x[11];// m     - Turbine exit meanline radius
+    vector_double lb = {0,0,600,0.005,0.005,0.0001,0,0,0.005,0.005,0.0001,0.005};
     vector_double ub = {20000,300,1100,0.035,0.035,0.05,0.03,300,0.035,0.035,0.05,0.03};
     std::pair<vector_double, vector_double> ret(lb,ub);
     return ret;
@@ -50,6 +50,11 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
     auto R_Tit = x[9]; // m     - Turbine inlet tip radius
     auto A_To = x[10]; // m^2   - Turbine outlet area
     auto R_Tom = x[11];// m     - Turbine exit meanline velocity
+    // Variable subscript convention:
+    // if u:
+    // u_<Component : n><Component axial location : 1><Velocity direction : 1 - 2>_<component radial location : n>
+    // otherwise:
+    // <var symbol : n>_<Component : n><component axial location : 1><component radial location : n>
     try{
         // Stagnation quantities
         double T_0 = Ts_0 + ((u_0*u_0)/(2*C_pc));
@@ -106,7 +111,16 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double sigma_max_Co = 0.5*omega*omega*rho_C*(R_Cot*R_Cot - R_Coh*R_Coh);
         double con_sigma_max_Co = FOS_C * sigma_max_Co - sigma_max_C;// FOS at compressor outlet blade root
 
+        #ifdef EVAL_JET_CALC
+        double beta_Di = (180/M_PI)*std::atan(u_Coth_STAT / u_Coa);
 
+        double R_Co_x = R_Com + 0.003;
+        double u_Coth_x_STAT = u_Coth_STAT * (R_Com/R_Co_x);
+        double u_Coth_x_ROT = u_Coth_STAT - omega*R_Co_x;
+        double u_Coa_x = compute_u_a(m_dot,(P_3/(R*T_3)), T_3, u_Coth_x_STAT, gam_c, A_Co);
+        double beta_Co_x = (180/M_PI)*std::atan(-u_Coth_x_ROT/u_Coa_x);
+        double beta_Di_x = (180/M_PI)*std::atan(u_Coth_x_STAT / u_Coa_x);
+        #endif
 
         // Combustor
         double f = (C_ph*T_4 - C_pc*T_3)/(h_ker - C_ph*T_4);
@@ -148,7 +162,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double con_M_Ti = M_Ti - 0.8;// Turbine inlet mach less than 0.8
         double beta_Tim = (180/M_PI)*std::atan(u_Tith_ROT/u_Tia);
         double con_beta_Tim = std::abs(beta_Tim) - 65;// Turbine inlet angle less than 65 degrees
-        double u_Toa = compute_u_a(m_dot * (1+f), P_5/(R*T_5), T_5, omega*R_Tom, gam_h, A_To);
+        double u_Toa = compute_u_a(m_dot * (1+f), P_5/(R*T_5), T_5, 0, gam_h, A_To);
         if(std::isnan(u_Toa)){
             vector_double ret(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
             return ret;
@@ -168,18 +182,40 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double con_R_Toh = 0.004 - R_Toh;// Inner radius of turbine outlet must be at least 4mm
         double sigma_max_To = 0.5*omega*omega*rho_C*(R_Tot*R_Tot - R_Toh*R_Toh);
         double con_sigma_max_To = FOS_T * sigma_max_To - sigma_max_T;// FOS at compressor inlet blade root
+        double con_turbine_tip_geom = R_Tit - R_Tot;
+        double con_turbine_hub_geom = R_Toh - R_Tih;
+
+        #ifdef EVAL_JET_CALC
+        double u_NGVoth_tip = (R_Tim / R_Tit) * u_Tith_STAT;// NGV outlet theta tip
+        double u_NGVoa_tip = compute_u_a(m_dot*(1+f),P_3/(R*T_4), T_4, u_NGVoth_tip, gam_h, A_Ti);
+        double beta_NGVot = (180/M_PI)*std::atan(u_NGVoth_tip / u_NGVoa_tip);
+        double u_Tith_tip_ROT = u_NGVoth_tip - omega*R_Tit;
+        double beta_Tit = (180/M_PI)*std::atan((u_Tith_tip_ROT)/u_NGVoa_tip);
+        double u_Toa_tip = u_Toa;
+        double beta_Tot = (180/M_PI)*std::atan((omega*R_Tot)/u_Toa_tip);
 
 
+        double u_NGVoth_hub = (R_Tim / R_Tih) * u_Tith_STAT;// NGV outlet theta hub
+        double u_NGVoa_hub = compute_u_a(m_dot*(1+f),P_3/(R*T_4), T_4, u_NGVoth_hub, gam_h, A_Ti);
+        double beta_NGVoh = (180/M_PI)*std::atan(u_NGVoth_hub / u_NGVoa_hub);
+        double u_Tith_hub_ROT = u_NGVoth_hub - omega*R_Tih;
+        double beta_Tih = (180/M_PI)*std::atan((u_Tith_hub_ROT)/u_NGVoa_hub);
+        double u_Toa_hub = u_Toa;
+        double beta_Toh = (180/M_PI)*std::atan((omega*R_Toh)/u_Toa_hub);
+        #endif
 
         // Nozzle
         double Ts_6 = T_5*std::pow(Ps_6/P_5,(gam_h-1)/gam_h);
         double a_6 = std::pow(gam_h*R*Ts_6,0.5);
         double u_6 = a_6*std::pow((2/(gam_h-1))*(std::pow((P_5/Ps_6),(gam_h-1)/gam_h)-1),0.5);
+        #ifdef EVAL_JET_CALC
+        double R_6 = std::pow((m_dot*(1+f))/(u_6*(Ps_0/(R*Ts_6)))/M_PI,0.5);
+        #endif
         double F = m_dot*((1+f)*u_6 - u_0);
         double con_F = 70-F; // Thrust at least 70N
         //Calculate objective
         double Isp = (F/(m_dot*f*9.8066));
-        vector_double ret = {-(F/76.76 + Isp/2527.96), 
+        vector_double ret = {-(F/75.2493+Isp/2493.95), 
             con_beta_Ci_tip, 
             con_beta_Co, 
             con_beta_NGV, 
@@ -196,14 +232,14 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
             con_M_Tom, 
             con_phi_T, 
             con_psi_T, 
-            con_T_width, 
-            // con_turbine_diffusion, 
+            con_T_width, // con_turbine_diffusion, 
             con_turbine_outlet_width,
             con_R_Toh,
             con_sigma_max_Ci,
             con_sigma_max_Co,
             con_sigma_max_Ti,
-            con_sigma_max_To,};
+            con_sigma_max_To,
+            };
         // A physically impossible engine will usually result in a bunch of NaNs,
         // and bad inputs might give Inf due to division by zero.
         // If this happens, return a big penalty
