@@ -254,7 +254,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
     }
 }
 // Calculates if a specific speed and specific work lie on the Cordier line
-inline bool problem_jet_calc::is_cordier(double sigma, double delta) const{
+bool problem_jet_calc::is_cordier(double sigma, double delta) const{
     double ideal_delta{};
     double min_delta{};
     double max_delta{};
@@ -277,7 +277,7 @@ inline bool problem_jet_calc::is_cordier(double sigma, double delta) const{
 }
 
 // Checks if anything in a vector_double is inf or nan
-inline bool problem_jet_calc::invalid_ret(vector_double &x) const{
+bool problem_jet_calc::invalid_ret(vector_double &x) const{
     for (double xi : x){
         if(std::isinf(xi) || std::isnan(xi)){
             return true;

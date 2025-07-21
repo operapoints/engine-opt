@@ -55,8 +55,9 @@ struct problem_jet_calc{
                         double u_th,
                         double gam,
                         double A) const;
-        inline bool invalid_ret(vector_double& x) const;
-        inline bool is_cordier(double sigma, double delta) const;
+        bool invalid_ret(vector_double& x) const;
+        bool is_cordier(double sigma, double delta) const;
+        std::vector<double> compute_contour_val(double T_4, double OPR) const;
 };
 
 #endif
