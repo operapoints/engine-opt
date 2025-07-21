@@ -3,11 +3,9 @@
 #include "jet_calc.h"
 
 
-std::vector<double> problem_jet_calc::compute_contour_val(double T_4, double OPR) const{
+std::vector<double> problem_jet_calc::compute_contour_val(double T_4, double OPR, double des_phi_C, double des_psi_C) const{
     std::vector<double> x = {11475.8, 135.212, 1097.15, 0.00501128, 0.0206151, 0.00124931, 0.0299996, 62.201, 0.0154871, 0.0315287, 0.00210709, 0.0188079, };
-    // Change these to ensure compressor is on cordier
-    double des_psi_C = 0.8;
-    double des_phi_C = 0.11;
+    
     // TODO: find x from x_opt and args
     auto R_Com = 0.03; // m     - compressor outlet meanline radius
     auto u_i = x[1];   // m/s   - compressor inlet velocity
@@ -266,7 +264,7 @@ int main(){
     // Loop through the grid, for every point compute the data, then store the data along the correct slice
     for(int i = 0; i<num_points; i++){
         for(int j = 0; j<num_points; j++){
-            auto temp_data = pjc.compute_contour_val(T_4_1d[i],OPR_1d[j]);
+            auto temp_data = pjc.compute_contour_val(T_4_1d[i],OPR_1d[j],0.11,0.8);
             for(int k=0; k<num_datapoints; k++){
                 // The indices are k,i,j here because contourf expects i,j arrays for plotting
                 data[k][j][i] = temp_data[k];

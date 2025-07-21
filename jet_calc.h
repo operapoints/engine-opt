@@ -57,7 +57,7 @@ struct problem_jet_calc{
                         double A) const;
         bool invalid_ret(vector_double& x) const;
         bool is_cordier(double sigma, double delta) const;
-        std::vector<double> compute_contour_val(double T_4, double OPR) const;
+        std::vector<double> compute_contour_val(double T_4, double OPR, double des_phi_C = 0.11, double des_psi_C = 0.8) const;
 };
 
 #endif
