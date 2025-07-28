@@ -1,7 +1,7 @@
 #ifndef JET_CALC_H
 #define JET_CALC_H
 
-// #define EVAL_JET_CALC
+#define EVAL_JET_CALC
 
 #include <pagmo/problem.hpp>
 #include <pagmo/types.hpp>
@@ -57,7 +57,8 @@ struct problem_jet_calc{
                         double A) const;
         bool invalid_ret(vector_double& x) const;
         bool is_cordier(double sigma, double delta) const;
-        std::vector<double> compute_contour_val(double T_4, double OPR, double des_phi_C = 0.11, double des_psi_C = 0.8) const;
+        double cordier(double sigma) const;
+        std::vector<double> compute_contour_val(double T_4, double OPR, double spec_speed_C=0.4) const;
 };
 
 #endif

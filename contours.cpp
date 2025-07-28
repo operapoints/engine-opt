@@ -3,9 +3,10 @@
 #include "jet_calc.h"
 
 
-std::vector<double> problem_jet_calc::compute_contour_val(double T_4, double OPR, double des_phi_C, double des_psi_C) const{
+std::vector<double> problem_jet_calc::compute_contour_val(double T_4, double OPR, double spec_speed_C) const{
     std::vector<double> x = {11475.8, 135.212, 1097.15, 0.00501128, 0.0206151, 0.00124931, 0.0299996, 62.201, 0.0154871, 0.0315287, 0.00210709, 0.0188079, };
-    
+    double des_psi_C = 1/std::pow(cordier(spec_speed_C)*spec_speed_C,2);
+    double des_phi_C = spec_speed_C*spec_speed_C*std::pow(des_psi_C,3/2);
     // TODO: find x from x_opt and args
     auto R_Com = 0.03; // m     - compressor outlet meanline radius
     auto u_i = x[1];   // m/s   - compressor inlet velocity
@@ -191,9 +192,10 @@ std::vector<double> problem_jet_calc::compute_contour_val(double T_4, double OPR
         double Isp = (F/(m_dot*f*9.8066));
         double eta_thermal = ((1+f)*u_6*u_6)/(2*f*h_ker);
         double inv_W_sp = std::pow(u_6*u_6*0.5,-0.5);
+        double W_sp = 0.5*(u_6*u_6 - u_0*u_0);
         res = {Isp, 
             eta_thermal,
-            inv_W_sp,
+            W_sp,
             // con_beta_Ci_tip, 
             // con_beta_Co, 
             // con_beta_NGV, 
@@ -254,23 +256,46 @@ int main(){
     problem_jet_calc pjc;
     // auto test = pjc.compute_contour_val(1094,1.323);
     int num_points = 100;
-    int num_datapoints = 6;
+    int num_values = 6;
 
-    vector_1d T_4_1d = linspace(800,1100,num_points);
-    vector_1d OPR_1d = linspace(1,4,num_points);
+    vector_1d T_4_1d = linspace(700,1600,num_points);
+    vector_1d OPR_1d = linspace(1,6,num_points);
     auto [T_4_2d, OPR_2d] = meshgrid(T_4_1d, OPR_1d);
     // (5, num_points, num_points) array of data
-    std::vector<std::vector<std::vector<double>>> data(num_datapoints, std::vector<std::vector<double>>(num_points,std::vector<double>(num_points)));
+    std::vector<std::vector<std::vector<double>>> data(num_values, std::vector<std::vector<double>>(num_points,std::vector<double>(num_points)));
     // Loop through the grid, for every point compute the data, then store the data along the correct slice
     for(int i = 0; i<num_points; i++){
         for(int j = 0; j<num_points; j++){
-            auto temp_data = pjc.compute_contour_val(T_4_1d[i],OPR_1d[j],0.11,0.8);
-            for(int k=0; k<num_datapoints; k++){
-                // The indices are k,i,j here because contourf expects i,j arrays for plotting
+            auto temp_data = pjc.compute_contour_val(T_4_1d[i],OPR_1d[j],0.4);
+            for(int k=0; k<num_values; k++){
+                // The indices are k,j,i here because contourf expects j,i arrays for plotting
+                // Dimension j is for the y axis, i is for x axis
                 data[k][j][i] = temp_data[k];
             }
         }
     }
+    int max_OPR_idx = 0;
+    // Start at 1 here because the first row is with an OPR of 1, so it is not physical and shouldn't be considered
+    for (int i=1;i<num_points;i++){
+        double temp_con_M_Cit = data[3][i][0];
+        if(temp_con_M_Cit < 0){
+            continue;
+        }else{
+            max_OPR_idx = i-1;
+            break;
+        }
+    }
+    double max_F = data[5][max_OPR_idx][num_points-1];
+    double max_ISP = 0;
+    double T_for_max_Isp = 0;
+    for(int i=0;i<num_points;i++){
+        double temp_ISP = data[0][max_OPR_idx][i];
+        if (temp_ISP > max_ISP){
+            max_ISP = data[0][max_OPR_idx][i];
+            T_for_max_Isp = T_4_1d[i];
+        }
+    }
+
     // print_matrix_numpy_style(data[5]);
     // print_matrix_numpy_style(data[1]);
     auto f1 = figure(true);
@@ -279,7 +304,8 @@ int main(){
     ax1->hold(on);
     // Plot data
     auto ISP = data[0];
-    ax1->contourf(T_4_2d,OPR_2d,ISP);
+    auto contour_1_1 = ax1->contour(T_4_2d,OPR_2d,ISP);
+    contour_1_1->line_width(2.0);
     // Plot and style constraints
     auto isocline_1_1 = ax1->contour(T_4_2d,OPR_2d,data[3], vector_1d({0.0}));
     isocline_1_1->line_width(3.0);
@@ -295,7 +321,8 @@ int main(){
     ax2->hold(on);
     // Plot data
     auto ETA_TH = data[1];
-    ax2->contourf(T_4_2d,OPR_2d,ETA_TH);
+    auto contour_2_1 = ax2->contour(T_4_2d,OPR_2d,ETA_TH);
+    contour_2_1 -> line_width(2.0);
     // Plot and style constraints
     auto isocline_2_1 = ax2->contour(T_4_2d,OPR_2d,data[3], vector_1d({0.0}));
     isocline_2_1->line_width(3.0);
@@ -311,7 +338,8 @@ int main(){
     ax3->hold(on);
     // Plot data
     auto INV_W_SP = data[2];
-    ax3->contourf(T_4_2d,OPR_2d,INV_W_SP);
+    auto contour_3_1 = ax3->contour(T_4_2d,OPR_2d,INV_W_SP);
+    contour_3_1->line_width(2.0);
     // Plot and style constraints
     auto isocline_3_1 = ax3->contour(T_4_2d,OPR_2d,data[3], vector_1d({0.0}));
     isocline_3_1->line_width(3.0);
@@ -321,13 +349,14 @@ int main(){
     isocline_3_2->color("blue");
     // Add fripperies
     ax3->colormap();
-    ax3->title("Specific Work ^ -0.5");
+    ax3->title("Specific Work");
 
     auto ax4 = f1->add_subplot(2,2,4);
     ax4->hold(on);
     // Plot data
     auto THRUST = data[5];
-    ax4->contourf(T_4_2d,OPR_2d,THRUST);
+    auto contour_4_1 = ax4->contour(T_4_2d,OPR_2d,THRUST);
+    contour_4_1->line_width(2.0);
     // Plot and style constraints
     auto isocline_4_1 = ax4->contour(T_4_2d,OPR_2d,data[3], vector_1d({0.0}));
     isocline_4_1->line_width(3.0);

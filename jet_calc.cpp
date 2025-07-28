@@ -99,6 +99,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double beta_Co = (180/M_PI)*std::atan(-u_Coth_ROT/u_Coa);
         double con_beta_Co = beta_Co - 60; // Compressor blade exit angle below 40 degrees
         double Ts_3 = T_3 - (u_Co_STAT*u_Co_STAT)/(2*C_pc);
+        double Ps_3 = std::pow((Ts_3/T_3),gam_c/(gam_c-1)) * P_3;
         double a_3 = std::pow(gam_c*R*Ts_3, 0.5);
         double M_Co_ROT = u_Co_ROT/a_3;
         double con_M_Co_ROT = M_Co_ROT - 0.8;// Compressor exit relative Mach less than 0.8
@@ -152,7 +153,8 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double con_psi_T = std::abs(psi_T - (0.5*(min_psi_T+max_psi_T))) - (0.5*(max_psi_T - min_psi_T));// Loading coefficient in appropriate range
         double u_Ti_STAT = std::pow(u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia,0.5);
         double D_Ts_NGV = -1*(u_Ti_STAT*u_Ti_STAT) / (2*C_ph);
-        double Ts_Ti = T_4 - D_Ts_NGV;
+        double Ts_Ti = T_4 + D_Ts_NGV;
+        double Ps_Ti = P_3 * std::pow(Ts_Ti/T_4, (gam_h)/(gam_h-1));
         double DoR = 1 - (D_Ts_NGV/D_T_T);
         double con_DoR = std::abs(0.4 - DoR) - 0.1; // Degree of reaction of turbine between 0.3 and 0.5
         double M_NGVo = std::pow((u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia)/(gam_h*R*Ts_Ti),0.5);
@@ -274,6 +276,22 @@ bool problem_jet_calc::is_cordier(double sigma, double delta) const{
     min_delta = 0.9 * ideal_delta;
     max_delta = 1.1 * ideal_delta;
     return (delta <= max_delta && delta >= min_delta);
+}
+
+double problem_jet_calc::cordier(double sigma) const{
+    if(sigma<0.05 || sigma>2.5){
+        return 0;
+    }
+    if(sigma>=0.05 && sigma < 0.4){
+        return 1.1173*std::pow(sigma, -0.963);
+    }
+    if(sigma>=0.4 && sigma < 0.8){
+        return 1.46477*std::pow(sigma, -0.66742);
+    }
+    if(sigma>=0.8 && sigma < 2.5){
+        return 1.61299*std::pow(sigma, -0.23543);
+    }
+    return 0;
 }
 
 // Checks if anything in a vector_double is inf or nan
