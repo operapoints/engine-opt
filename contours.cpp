@@ -255,144 +255,166 @@ int main(){
 
     problem_jet_calc pjc;
     // auto test = pjc.compute_contour_val(1094,1.323);
-    int num_points = 100;
+    int num_points = 2000;
     int num_values = 6;
 
     vector_1d T_4_1d = linspace(700,1600,num_points);
     vector_1d OPR_1d = linspace(1,6,num_points);
     auto [T_4_2d, OPR_2d] = meshgrid(T_4_1d, OPR_1d);
     // (5, num_points, num_points) array of data
-    std::vector<std::vector<std::vector<double>>> data(num_values, std::vector<std::vector<double>>(num_points,std::vector<double>(num_points)));
-    // Loop through the grid, for every point compute the data, then store the data along the correct slice
-    for(int i = 0; i<num_points; i++){
-        for(int j = 0; j<num_points; j++){
-            auto temp_data = pjc.compute_contour_val(T_4_1d[i],OPR_1d[j],0.4);
-            for(int k=0; k<num_values; k++){
-                // The indices are k,j,i here because contourf expects j,i arrays for plotting
-                // Dimension j is for the y axis, i is for x axis
-                data[k][j][i] = temp_data[k];
+    vector_1d sigma_vec = linspace(0.15,1.6,30);
+    std::vector<double> Isp_vec = {};
+    std::vector<double> F_vec = {};
+    std::vector<double> T_for_max_Isp_vec = {};
+    for(double temp_sigma : sigma_vec){
+        std::vector<std::vector<std::vector<double>>> data(num_values, std::vector<std::vector<double>>(num_points,std::vector<double>(num_points)));
+        // Loop through the grid, for every point compute the data, then store the data along the correct slice
+        for(int i = 0; i<num_points; i++){
+            for(int j = 0; j<num_points; j++){
+                auto temp_data = pjc.compute_contour_val(T_4_1d[i],OPR_1d[j],temp_sigma);
+                for(int k=0; k<num_values; k++){
+                    // The indices are k,j,i here because contourf expects j,i arrays for plotting
+                    // Dimension j is for the y axis, i is for x axis
+                    data[k][j][i] = temp_data[k];
+                }
             }
         }
-    }
-    int max_OPR_idx = 0;
-    // Start at 1 here because the first row is with an OPR of 1, so it is not physical and shouldn't be considered
-    for (int i=1;i<num_points;i++){
-        double temp_con_M_Cit = data[3][i][0];
-        if(temp_con_M_Cit < 0){
-            continue;
-        }else{
-            max_OPR_idx = i-1;
-            break;
+        int max_OPR_idx = 0;
+        // Start at 1 here because the first row is with an OPR of 1, so it is not physical and shouldn't be considered
+        for (int i=1;i<num_points;i++){
+            double temp_con_M_Cit = data[3][i][0];
+            if(temp_con_M_Cit < 0){
+                continue;
+            }else{
+                max_OPR_idx = i-1;
+                break;
+            }
         }
-    }
-    double max_F = data[5][max_OPR_idx][num_points-1];
-    double max_ISP = 0;
-    double T_for_max_Isp = 0;
-    for(int i=0;i<num_points;i++){
-        double temp_ISP = data[0][max_OPR_idx][i];
-        if (temp_ISP > max_ISP){
-            max_ISP = data[0][max_OPR_idx][i];
-            T_for_max_Isp = T_4_1d[i];
+        double max_F = data[5][max_OPR_idx][num_points-1];
+        double max_ISP = 0;
+        double T_for_max_Isp = 0;
+        for(int i=0;i<num_points;i++){
+            double temp_ISP = data[0][max_OPR_idx][i];
+            if (temp_ISP > max_ISP){
+                max_ISP = data[0][max_OPR_idx][i];
+                T_for_max_Isp = T_4_1d[i];
+            }
         }
+        Isp_vec.push_back(max_ISP);
+        F_vec.push_back(max_F);
+        T_for_max_Isp_vec.push_back(T_for_max_Isp);
     }
+    auto f = figure(true);
+    auto ax1 = f->add_subplot(1, 1, 1);
 
-    // print_matrix_numpy_style(data[5]);
-    // print_matrix_numpy_style(data[1]);
-    auto f1 = figure(true);
-    f1->size(1920, 1080); 
-    auto ax1 = f1->add_subplot(2,2,1);
-    ax1->hold(on);
-    // Plot data
-    auto ISP = data[0];
-    auto contour_1_1 = ax1->contour(T_4_2d,OPR_2d,ISP);
-    contour_1_1->line_width(2.0);
-    // Plot and style constraints
-    auto isocline_1_1 = ax1->contour(T_4_2d,OPR_2d,data[3], vector_1d({0.0}));
-    isocline_1_1->line_width(3.0);
-    isocline_1_1->color("red");
-    auto isocline_1_2 = ax1->contour(T_4_2d,OPR_2d,data[4], vector_1d({0.0}));
-    isocline_1_2->line_width(3.0);
-    isocline_1_2->color("blue");
-    // Add fripperies
-    ax1->colormap();
-    ax1->title("Specific Impulse, s");
+    // Plot first dataset (Isp)
+    ax1->plot(sigma_vec, T_for_max_Isp_vec, "-b")->display_name("Isp");
+    for (double val : T_for_max_Isp_vec){
+        printf("%f\n",val);
+    }
+    ax1->ylabel("T4 for max Isp");
+    ax1->xlabel("Sigma");
 
-    auto ax2 = f1->add_subplot(2,2,2);
-    ax2->hold(on);
-    // Plot data
-    auto ETA_TH = data[1];
-    auto contour_2_1 = ax2->contour(T_4_2d,OPR_2d,ETA_TH);
-    contour_2_1 -> line_width(2.0);
-    // Plot and style constraints
-    auto isocline_2_1 = ax2->contour(T_4_2d,OPR_2d,data[3], vector_1d({0.0}));
-    isocline_2_1->line_width(3.0);
-    isocline_2_1->color("red");
-    auto isocline_2_2 = ax2->contour(T_4_2d,OPR_2d,data[4], vector_1d({0.0}));
-    isocline_2_2->line_width(3.0);
-    isocline_2_2->color("blue");
-    // Add fripperies
-    ax2->colormap();
-    ax2->title("Thermal Efficiency");
+    show();
 
-    auto ax3 = f1->add_subplot(2,2,3);
-    ax3->hold(on);
-    // Plot data
-    auto INV_W_SP = data[2];
-    auto contour_3_1 = ax3->contour(T_4_2d,OPR_2d,INV_W_SP);
-    contour_3_1->line_width(2.0);
-    // Plot and style constraints
-    auto isocline_3_1 = ax3->contour(T_4_2d,OPR_2d,data[3], vector_1d({0.0}));
-    isocline_3_1->line_width(3.0);
-    isocline_3_1->color("red");
-    auto isocline_3_2 = ax3->contour(T_4_2d,OPR_2d,data[4], vector_1d({0.0}));
-    isocline_3_2->line_width(3.0);
-    isocline_3_2->color("blue");
-    // Add fripperies
-    ax3->colormap();
-    ax3->title("Specific Work");
-
-    auto ax4 = f1->add_subplot(2,2,4);
-    ax4->hold(on);
-    // Plot data
-    auto THRUST = data[5];
-    auto contour_4_1 = ax4->contour(T_4_2d,OPR_2d,THRUST);
-    contour_4_1->line_width(2.0);
-    // Plot and style constraints
-    auto isocline_4_1 = ax4->contour(T_4_2d,OPR_2d,data[3], vector_1d({0.0}));
-    isocline_4_1->line_width(3.0);
-    isocline_4_1->color("red");
-    auto isocline_4_2 = ax4->contour(T_4_2d,OPR_2d,data[4], vector_1d({0.0}));
-    isocline_4_2->line_width(3.0);
-    isocline_4_2->color("blue");
-    // Add fripperies
-    ax4->colormap();
-    ax4->title("Thrust");
-
-
-
-    // Plot the entire figure
-    f1->show();
-    
-    // vector_1d x = linspace(-10, 10, 100);
-    // vector_1d y = linspace(-20, 20, 100);
-    // auto [X,Y] = meshgrid(x,y);
-    // vector_2d Z = transform(X,Y,[](double x, double y){return x*x + y*y;});
-
+    // return 0;
+    // // print_matrix_numpy_style(data[5]);
+    // // print_matrix_numpy_style(data[1]);
     // auto f1 = figure(true);
-    // auto ax1 = f1->add_subplot(1,1,0);
-
-    // ax1->contour(X,Y,Z);
+    // f1->size(1920, 1080); 
+    // auto ax1 = f1->add_subplot(2,2,1);
+    // ax1->hold(on);
+    // // Plot data
+    // auto ISP = data[0];
+    // auto contour_1_1 = ax1->contour(T_4_2d,OPR_2d,ISP);
+    // contour_1_1->line_width(2.0);
+    // // Plot and style constraints
+    // auto isocline_1_1 = ax1->contour(T_4_2d,OPR_2d,data[3], vector_1d({0.0}));
+    // isocline_1_1->line_width(3.0);
+    // isocline_1_1->color("red");
+    // auto isocline_1_2 = ax1->contour(T_4_2d,OPR_2d,data[4], vector_1d({0.0}));
+    // isocline_1_2->line_width(3.0);
+    // isocline_1_2->color("blue");
+    // // Add fripperies
     // ax1->colormap();
-    // f1->show();
+    // ax1->title("Specific Impulse, s");
 
-    // auto f2 = figure(true);
-    // auto ax2 = f2->add_subplot(1,1,0);
+    // auto ax2 = f1->add_subplot(2,2,2);
     // ax2->hold(on);
-    // ax2->contourf(X,Y,Z);
+    // // Plot data
+    // auto ETA_TH = data[1];
+    // auto contour_2_1 = ax2->contour(T_4_2d,OPR_2d,ETA_TH);
+    // contour_2_1 -> line_width(2.0);
+    // // Plot and style constraints
+    // auto isocline_2_1 = ax2->contour(T_4_2d,OPR_2d,data[3], vector_1d({0.0}));
+    // isocline_2_1->line_width(3.0);
+    // isocline_2_1->color("red");
+    // auto isocline_2_2 = ax2->contour(T_4_2d,OPR_2d,data[4], vector_1d({0.0}));
+    // isocline_2_2->line_width(3.0);
+    // isocline_2_2->color("blue");
+    // // Add fripperies
     // ax2->colormap();
-    // auto isoclines = ax2->contourf(X,Y,Z);
-    // isoclines->color("white");
-    // isoclines->line_width(1.5);
-    // f2->show();
+    // ax2->title("Thermal Efficiency");
+
+    // auto ax3 = f1->add_subplot(2,2,3);
+    // ax3->hold(on);
+    // // Plot data
+    // auto INV_W_SP = data[2];
+    // auto contour_3_1 = ax3->contour(T_4_2d,OPR_2d,INV_W_SP);
+    // contour_3_1->line_width(2.0);
+    // // Plot and style constraints
+    // auto isocline_3_1 = ax3->contour(T_4_2d,OPR_2d,data[3], vector_1d({0.0}));
+    // isocline_3_1->line_width(3.0);
+    // isocline_3_1->color("red");
+    // auto isocline_3_2 = ax3->contour(T_4_2d,OPR_2d,data[4], vector_1d({0.0}));
+    // isocline_3_2->line_width(3.0);
+    // isocline_3_2->color("blue");
+    // // Add fripperies
+    // ax3->colormap();
+    // ax3->title("Specific Work");
+
+    // auto ax4 = f1->add_subplot(2,2,4);
+    // ax4->hold(on);
+    // // Plot data
+    // auto THRUST = data[5];
+    // auto contour_4_1 = ax4->contour(T_4_2d,OPR_2d,THRUST);
+    // contour_4_1->line_width(2.0);
+    // // Plot and style constraints
+    // auto isocline_4_1 = ax4->contour(T_4_2d,OPR_2d,data[3], vector_1d({0.0}));
+    // isocline_4_1->line_width(3.0);
+    // isocline_4_1->color("red");
+    // auto isocline_4_2 = ax4->contour(T_4_2d,OPR_2d,data[4], vector_1d({0.0}));
+    // isocline_4_2->line_width(3.0);
+    // isocline_4_2->color("blue");
+    // // Add fripperies
+    // ax4->colormap();
+    // ax4->title("Thrust");
+
+
+
+    // // Plot the entire figure
+    // f1->show();
+    
+    // // vector_1d x = linspace(-10, 10, 100);
+    // // vector_1d y = linspace(-20, 20, 100);
+    // // auto [X,Y] = meshgrid(x,y);
+    // // vector_2d Z = transform(X,Y,[](double x, double y){return x*x + y*y;});
+
+    // // auto f1 = figure(true);
+    // // auto ax1 = f1->add_subplot(1,1,0);
+
+    // // ax1->contour(X,Y,Z);
+    // // ax1->colormap();
+    // // f1->show();
+
+    // // auto f2 = figure(true);
+    // // auto ax2 = f2->add_subplot(1,1,0);
+    // // ax2->hold(on);
+    // // ax2->contourf(X,Y,Z);
+    // // ax2->colormap();
+    // // auto isoclines = ax2->contourf(X,Y,Z);
+    // // isoclines->color("white");
+    // // isoclines->line_width(1.5);
+    // // f2->show();
     return 0;
 }
