@@ -369,7 +369,7 @@ int main(){
     ax4->title("Thrust");
 
 
-
+    sleep(1);
     // Plot the entire figure
     f1->show();
     
