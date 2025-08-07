@@ -14,7 +14,7 @@ find_package(Pagmo REQUIRED)
 
 find_package(Boost REQUIRED)
 
-add_subdirectory(matplotplusplus)
+# add_subdirectory(matplotplusplus)
 
 # Create an executable, and link it to the Pagmo::pagmo imported target.
 # This ensures that, in the compilation of 'getting_started', pagmo's include
@@ -32,13 +32,13 @@ target_include_directories(engine_opt PRIVATE ${Boost_INCLUDE_DIRS})
 
 target_compile_options(engine_opt PRIVATE -lineinfo)
 
-add_executable(contours
-    contours.cpp
-    jet_calc.cpp
-    jet_calc.h)
+# add_executable(contours
+#     contours.cpp
+#     jet_calc.cpp
+#     jet_calc.h)
 
-target_link_libraries(contours PRIVATE matplot Pagmo::pagmo)
+# target_link_libraries(contours PRIVATE matplot Pagmo::pagmo)
 
-target_include_directories(contours PRIVATE ${Boost_INCLUDE_DIRS})
+# target_include_directories(contours PRIVATE ${Boost_INCLUDE_DIRS})
 
-target_compile_options(contours PRIVATE -lineinfo)
+# target_compile_options(contours PRIVATE -lineinfo)

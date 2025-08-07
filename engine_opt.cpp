@@ -1,6 +1,8 @@
 #include <iostream>
 #include <chrono>
 
+#include <limits>
+
 #include <pagmo/algorithm.hpp>
 
 #include <pagmo/algorithms/sade.hpp>
@@ -29,7 +31,7 @@ int main(){
     // Balance
     pagmo::vector_double x1 = {11475.8, 135.212, 1097.15, 0.00501128, 0.0206151, 0.00124931, 0.0299996, 62.201, 0.0154871, 0.0315287, 0.00210709, 0.0188079, };
 
-    pagmo::vector_double x2 = {15044.9, 133.092, 1099.95, 0.0050458, 0.0157997, 0.000431372, 0.0299949, 109.67, 0.0154697, 0.0244883, 0.00123787, 0.0158204, };
+    pagmo::vector_double x2 = {8857.27, 142.448, 1099.41, 0.00502764, 0.0261575, 0.00232261, 0.0392538, 63.3932, 0.0164537, 0.0402371, 0.00234055, 0.0239822, };
     // Max thrust
     pagmo::vector_double x3 = {14684.1, 125.722, 991.887, 0.00504372, 0.0164868, 0.000539293, 0.0299262, 104.827, 0.0155055, 0.0245546, 0.00169747, 0.0209158, };
     pjc_obj.fitness(x1);
@@ -38,13 +40,17 @@ int main(){
     #endif
     pagmo::problem pjc{pjc_obj};
     std::cout << pjc;
-    algorithm algo{gaco(10000,63,1,0,0.01,1000,7,1000)};    
-    archipelago archi(32u, algo, pjc, 10000u);
+    algorithm algo{gaco(1000,63,1,0,0.01,100,7,1000)};    
+    archipelago archi(32u, algo, pjc, 1000u);
     archi.evolve(1);
     archi.wait_check();
 
     // 6 - Print the fitness of the best solution in each island.
+    double best_champion_score = std::numeric_limits<double>::infinity();
+    int best_isl_idx = 0;
+    int isl_idx = 0;
     for (const auto &isl : archi) {
+        auto champion_score = isl.get_population().champion_f()[0];
         std::cout << isl.get_population().champion_f()[0] << '\n';
         pagmo::vector_double ch_x = isl.get_population().champion_x();
         std::cout << "{";
@@ -52,7 +58,21 @@ int main(){
             std::cout << ch_x[i] << ", ";
         }
         std::cout << "}\n";
+        if (champion_score<best_champion_score){
+            best_champion_score = champion_score;
+            best_isl_idx = isl_idx;
+        }
+        isl_idx++;
     }
+    std::cout << '\n';
+    auto champion_x = archi[best_isl_idx].get_population().champion_x();
+    std::cout << "Best score: " << best_champion_score << '\n';
+    std::cout << "{";
+    for(int i =0; i<champion_x.size(); i++){
+        std::cout << champion_x[i] << ", ";
+    }
+    std::cout << "}\n";
+
 
 
     // pagmo::vector_double x0 = {10183,127,1100,0.003,0.023,0.001,0.0250,65,0.02,0.03,0.002,0.025};

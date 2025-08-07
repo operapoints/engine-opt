@@ -13,7 +13,7 @@ vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return 23;
+    return 24;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
@@ -30,7 +30,7 @@ std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
     // auto A_To = x[10]; // m^2   - Turbine outlet area
     // auto R_Tom = x[11];// m     - Turbine exit meanline radius
     vector_double lb = {0,0,600,0.005,0.005,0.0001,0,0,0.005,0.005,0.0001,0.005};
-    vector_double ub = {20000,300,1100,0.035,0.035,0.05,0.03,300,0.035,0.035,0.05,0.03};
+    vector_double ub = {20000,300,1100,.1,.1,0.05,1,300,.1,.1,0.1,0.1};
     std::pair<vector_double, vector_double> ret(lb,ub);
     return ret;
 }
@@ -149,8 +149,8 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         // Smith believed that the losses were proportional to the average kinetic energy in the row,
         // and correlated this with empirically measured losses.
         // If this is true, these phi and psi constraints should hold for any topology.
-        double con_phi_T = std::abs(phi_T - (0.5*(min_phi_T+max_phi_T))) - (0.5*(max_phi_T - min_phi_T));// Flow coefficient in appropriate range
-        double con_psi_T = std::abs(psi_T - (0.5*(min_psi_T+max_psi_T))) - (0.5*(max_psi_T - min_psi_T));// Loading coefficient in appropriate range
+        double con_phi_T = std::abs(phi_T - (0.5*(min_phi_T+max_phi_T))) - (0.5*(max_phi_T - min_phi_T)); // Flow coefficient in appropriate range
+        double con_psi_T = std::abs(psi_T - (0.5*(min_psi_T+max_psi_T))) - (0.5*(max_psi_T - min_psi_T)); // Loading coefficient in appropriate range
         double u_Ti_STAT = std::pow(u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia,0.5);
         double D_Ts_NGV = -1*(u_Ti_STAT*u_Ti_STAT) / (2*C_ph);
         double Ts_Ti = T_4 + D_Ts_NGV;
@@ -221,7 +221,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double m_Compressor = std::abs((M_PI*(R_Cih*R_Cih*R_Cih - R_Coh*R_Coh*R_Coh)))*(rho_C/3);
         double m_Turbine = std::abs((M_PI*(R_Tih*R_Tih*R_Tih - R_Toh*R_Toh*R_Toh)))*(rho_T/3);
         // Diffuser mass proportional to spec speed and component radius cubed
-        double m_Diffuser = (0.07146/(0.03*0.03*0.03))*(R_Com*R_Com*R_Com)*(0.4/spec_speed_C);
+        double m_Diffuser = (0.07146/(0.03*0.03*0.03))*(R_Com*R_Com*R_Com)*(0.4/spec_speed_C)*(0.4/spec_speed_C);
         double m_NGV = (0.2885/(0.0315287*0.0315287*0.0315287))*(R_Tit*R_Tit*R_Tit);
 
         double m_Duct = 2*M_PI*R_Com*R_Com*0.001*2700;
@@ -231,16 +231,17 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double m_Shaft = (len_Combustor+R_Com+0.02) * M_PI * 0.005 * 0.005 * 8000;
         double R_overall = (R_Com * (0.036/0.03) * (0.4/spec_speed_C));
         double m_Wall = 2* M_PI * R_overall * (len_Combustor + 0.02) * 0.001 * 8000;
-        double m_Combustor = 2*M_PI*(0.5*R_overall + 0.8*R_overall)*len_Combustor*0.001;
+        double m_Combustor = 2*M_PI*(0.5*R_overall + 0.8*R_overall)*len_Combustor*0.001*8000;
 
-        double m_total = 1.3*(m_Compressor + m_Turbine+
+        double m_total = 1.2*(m_Compressor + m_Turbine+
                         m_Diffuser + m_NGV + m_Duct+
                         m_Nozzle+m_Shaft+m_Wall+m_Combustor);
+        double con_max_mass = m_total - 2.0;
 
 
         //Calculate objective
         double Isp = (F/(m_dot*f*9.8066));
-        vector_double ret = {-(F/75.2493+Isp/2493.95), 
+        vector_double ret = {-(Isp/2540. + F/128.), 
             con_beta_Ci_tip, 
             con_beta_Co, 
             con_beta_NGV, 
@@ -264,6 +265,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
             con_sigma_max_Co,
             con_sigma_max_Ti,
             con_sigma_max_To,
+            con_max_mass,
             };
         // A physically impossible engine will usually result in a bunch of NaNs,
         // and bad inputs might give Inf due to division by zero.
