@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.27)
 # The name of our project.
 project(Engine_Opt LANGUAGES CXX)
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS_DEBUG " -g -O0")
 # string(APPEND CMAKE_CXX_FLAGS_RELEASE " -O3 -DNDEBUG")
 # Look for an installation of pagmo in the system.
@@ -20,6 +20,18 @@ find_package(Boost REQUIRED)
 # This ensures that, in the compilation of 'getting_started', pagmo's include
 # dirs are added to the include path of the compiler and that pagmo's
 # dependencies are transitively linked to 'getting_started'.
+add_executable(F_Isp_trade
+    F_Isp_trade.cpp
+    jet_calc.cpp
+    jet_calc.h)
+
+
+target_link_libraries(F_Isp_trade PRIVATE Pagmo::pagmo)
+
+target_include_directories(F_Isp_trade PRIVATE ${Boost_INCLUDE_DIRS})
+
+target_compile_options(F_Isp_trade PRIVATE -lineinfo)
+
 add_executable(engine_opt
     engine_opt.cpp
     jet_calc.cpp
@@ -31,6 +43,8 @@ target_link_libraries(engine_opt PRIVATE Pagmo::pagmo)
 target_include_directories(engine_opt PRIVATE ${Boost_INCLUDE_DIRS})
 
 target_compile_options(engine_opt PRIVATE -lineinfo)
+
+# add_subdirectory(matplotplusplus)
 
 # add_executable(contours
 #     contours.cpp

@@ -44,6 +44,12 @@ struct problem_jet_calc{
         static constexpr double sigma_max_C = 880000000.;// 880MPa for Ti6Al4V
         static constexpr double FOS_T = 2;
         static constexpr double FOS_C = 2;
+
+        double k_F;
+        double k_Isp;
+        double k_mass;
+
+        problem_jet_calc();
         vector_double::size_type get_nec() const;
         vector_double::size_type get_nic() const;
         vector_double fitness(const vector_double &x) const;

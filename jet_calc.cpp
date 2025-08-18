@@ -9,6 +9,12 @@
 
 using namespace pagmo;
 
+problem_jet_calc::problem_jet_calc(){
+    k_Isp = 1.;
+    k_F = 0.;
+    k_mass = 0.;
+}
+
 vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
@@ -220,9 +226,9 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         // Mass model
         double m_Compressor = std::abs((M_PI*(R_Cih*R_Cih*R_Cih - R_Coh*R_Coh*R_Coh)))*(rho_C/3);
         double m_Turbine = std::abs((M_PI*(R_Tih*R_Tih*R_Tih - R_Toh*R_Toh*R_Toh)))*(rho_T/3);
-        // Diffuser mass proportional to spec speed and component radius cubed
-        double m_Diffuser = (0.07146/(0.03*0.03*0.03))*(R_Com*R_Com*R_Com)*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4))*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4));
-        double m_NGV = (0.2885/(0.0315287*0.0315287*0.0315287))*(R_Tit*R_Tit*R_Tit);
+        // Diffuser mass proportional to spec speed and component radius squared
+        double m_Diffuser = (0.07146/(0.03*0.03))*(R_Com*R_Com)*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4))*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4));
+        double m_NGV = (0.2885/(0.0315287*0.0315287))*(R_Tit*R_Tit);
 
         double m_Duct = 2*M_PI*R_Com*R_Com*0.001*2700;
         double m_Nozzle = 2*M_PI*R_Tit*R_Tot*0.001*8000;
@@ -230,18 +236,19 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double len_Combustor = u_Tia * 0.0005 + 0.01;
         double m_Shaft = (len_Combustor+R_Com+0.02) * M_PI * 0.005 * 0.005 * 8000;
         double R_overall = (R_Com * (0.036/0.03) * (0.4/(spec_speed_C<0.4?spec_speed_C:0.4)));
-        double m_Wall = 2* M_PI * R_overall * (len_Combustor + 0.02) * 0.001 * 8000;
-        double m_Combustor = 2*M_PI*(0.5*R_overall + 0.8*R_overall)*len_Combustor*0.001*8000;
+        double m_Wall = 2* M_PI * R_overall * (len_Combustor + 0.02) * 0.00065 * 8000;
+        double m_Combustor = 2*M_PI*(0.5*R_overall + 0.8*R_overall)*len_Combustor*0.00065*8000;
 
         double m_total = 1.12*(m_Compressor + m_Turbine+
                         m_Diffuser + m_NGV + m_Duct+
                         m_Nozzle+m_Shaft+m_Wall+m_Combustor);
         double con_max_mass = m_total - 1.16;
+        double con_min_thrust = 444.8 - F;
 
 
         //Calculate objective
         double Isp = (F/(m_dot*f*9.8066));
-        vector_double ret = {-(Isp/2460+F/77), 
+        vector_double ret = {-(F*k_F+Isp*k_Isp+k_mass/m_total), 
             con_beta_Ci_tip, 
             con_beta_Co, 
             con_beta_NGV, 
@@ -265,7 +272,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
             con_sigma_max_Co,
             con_sigma_max_Ti,
             con_sigma_max_To,
-            con_max_mass,
+            con_min_thrust,
             };
         // A physically impossible engine will usually result in a bunch of NaNs,
         // and bad inputs might give Inf due to division by zero.
