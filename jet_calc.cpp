@@ -375,3 +375,235 @@ double problem_jet_calc::compute_u_a(double m_dot,
         // return static_cast<double>(NAN);
     // }
 }
+
+vector_double problem_jet_calc::evaluate(const vector_double &x) const{
+    auto omega = x[0]; // rad/s - shaft speed
+    auto u_i = x[1];   // m/s   - compressor inlet velocity
+    auto T_4 = x[2];   // K     - combustor exit total temp
+    auto R_Cih = x[3]; // m     - compressor inlet hub radius
+    auto R_Cit = x[4]; // m     - compressor inlet tip radius
+    auto A_Co = x[5];  // m^2   - compressor outlet area
+    auto R_Com = x[6]; // m     - compressor outlet meanline radius
+    auto D_T_C = x[7]; // K     - compressor total temperature change
+    auto R_Tih = x[8]; // m     - turbine inlet hub radius
+    auto R_Tit = x[9]; // m     - Turbine inlet tip radius
+    auto A_To = x[10]; // m^2   - Turbine outlet area
+    auto R_Tom = x[11];// m     - Turbine exit meanline velocity
+    // Variable subscript convention:
+    // if u:
+    // u_<Component : n><Component axial location : 1><Velocity direction : 1 - 2>_<component radial location : n>
+    // otherwise:
+    // <var symbol : n>_<Component : n><component axial location : 1><component radial location : n>
+    try{
+        // Stagnation quantities
+        double T_0 = Ts_0 + ((u_0*u_0)/(2*C_pc));
+        double P_0 = Ps_0*std::pow((T_0/Ts_0),(gam_c/(gam_c-1)));
+        // Duct
+        double Ts_2 = T_0 - ((u_i*u_i)/(2*C_pc));
+        double Ps_2 = P_0 * std::pow((Ts_2/T_0),(gam_c/(gam_c-1)));
+        double rhos_2 = Ps_2/(R*Ts_2);
+        double A_Ci = M_PI*(R_Cit*R_Cit - R_Cih*R_Cih);
+        double m_dot = rhos_2*u_i*A_Ci;
+        // Compressor
+        double P_spC = C_pc*D_T_C;
+        double T_3 = T_0 + D_T_C;
+        double P_3 = P_0*std::pow((T_0+eta_C*D_T_C)/T_0,(gam_c/(gam_c-1)));
+
+        // Compressor constraints
+        // Velocities are positive in the direction of rotation
+        // phi and psi are calculated according to https://manual.cfturbo.com/en/index.html?md_parameters_axvent.html
+        double phi_C = (u_i*(A_Ci/(M_PI*R_Com*R_Com))) / (omega*R_Com);
+        double psi_C = (2*C_pc*D_T_C) / (omega*omega*R_Com*R_Com);
+        double spec_speed_C = std::pow(phi_C,0.5)/std::pow(psi_C,0.75);
+        double spec_dia_C = std::pow(psi_C,0.25)/std::pow(phi_C,0.5);
+        // The expression for the cordier line is based on the compressor cordier line at https://manual.cfturbo.com/en/index.html?cordier.html
+        double con_cordier_compressor = is_cordier(spec_speed_C, spec_dia_C)?-1:1;// The compressor must be in range of the Cordier line
+        double M_Ci_tip = std::pow((u_i*u_i + omega*omega*R_Cit*R_Cit)/(gam_c*R*Ts_2),0.5);
+        double con_M_Ci_tip = M_Ci_tip - 0.8;// Mach at compressor inlet less than 0.8
+        double beta_Ci_tip = (180/M_PI)*std::atan((omega*R_Cit)/u_i);
+        double con_beta_Ci_tip = beta_Ci_tip - 70;// Inlet blade angle less than 70 degrees
+        double u_Coth_STAT = (C_pc*D_T_C)/(omega*R_Com);
+        double u_Coth_ROT = u_Coth_STAT - (omega*R_Com);
+        double u_Coa = compute_u_a(m_dot,(P_3/(R*T_3)), T_3, u_Coth_STAT, gam_c, A_Co);
+        if(std::isnan(u_Coa)){
+            vector_double ret(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
+            return ret;
+        }
+        double u_Co_ROT = std::pow((u_Coth_STAT-(omega*R_Com))*(u_Coth_STAT-(omega*R_Com)) + u_Coa*u_Coa,0.5);
+        double u_Co_STAT = std::pow(u_Coth_STAT*u_Coth_STAT + u_Coa*u_Coa,0.5);
+        double u_Ci_ROT = std::pow((u_i*u_i + omega*omega*R_Cit*R_Cit),0.5);
+        double Diff_C = 1 - (u_Co_ROT/u_Ci_ROT)+u_Coth_STAT/(2*sigma_C*u_Ci_ROT);
+        double con_Diff_C = Diff_C - 0.55;// Lieblein diffusion factor less than 0.55
+        // u_Coth_ROT is negative because the angle is defined as positive in the direction opposing rotation
+        double beta_Co = (180/M_PI)*std::atan(-u_Coth_ROT/u_Coa);
+        double con_beta_Co = beta_Co - 60; // Compressor blade exit angle below 40 degrees
+        double Ts_3 = T_3 - (u_Co_STAT*u_Co_STAT)/(2*C_pc);
+        double Ps_3 = std::pow((Ts_3/T_3),gam_c/(gam_c-1)) * P_3;
+        double a_3 = std::pow(gam_c*R*Ts_3, 0.5);
+        double M_Co_ROT = u_Co_ROT/a_3;
+        double con_M_Co_ROT = M_Co_ROT - 0.8;// Compressor exit relative Mach less than 0.8
+        double M_Co_STAT = std::pow((u_Coa*u_Coa + u_Coth_STAT*u_Coth_STAT)/(gam_c*R*Ts_3),0.5);
+        double con_M_Co_STAT = M_Co_STAT - 0.8;// Compressor diffuser inlet Mach less than 0.8
+        double sigma_max_Ci = 0.5*omega*omega*rho_C*(R_Cit*R_Cit - R_Cih*R_Cih);
+        double con_sigma_max_Ci = FOS_C * sigma_max_Ci - sigma_max_C;// FOS at compressor inlet blade root
+        double R_Coh = R_Com - (A_Co/(4*M_PI*R_Com));
+        double R_Cot = R_Com + (A_Co/(4*M_PI*R_Com));
+        double sigma_max_Co = 0.5*omega*omega*rho_C*(R_Cot*R_Cot - R_Coh*R_Coh);
+        double con_sigma_max_Co = FOS_C * sigma_max_Co - sigma_max_C;// FOS at compressor outlet blade root
+
+        
+        double beta_Di = (180/M_PI)*std::atan(u_Coth_STAT / u_Coa);
+
+        double R_Co_x = R_Com + 0.003;
+        double u_Coth_x_STAT = u_Coth_STAT * (R_Com/R_Co_x);
+        double u_Coth_x_ROT = u_Coth_STAT - omega*R_Co_x;
+        double u_Coa_x = compute_u_a(m_dot,(P_3/(R*T_3)), T_3, u_Coth_x_STAT, gam_c, A_Co);
+        double beta_Co_x = (180/M_PI)*std::atan(-u_Coth_x_ROT/u_Coa_x);
+        double beta_Di_x = (180/M_PI)*std::atan(u_Coth_x_STAT / u_Coa_x);
+    
+
+        // Combustor
+        double f = (C_ph*T_4 - C_pc*T_3)/(h_ker - C_ph*T_4);
+        // Turbine
+        double D_T_T = -(P_spC/(C_ph*(1+f)));
+        double T_5 = T_4+D_T_T;
+        double P_5 = P_3*std::pow((T_4+(D_T_T/eta_T))/T_4,(gam_h/(gam_h-1)));
+        // Turbine constraints
+        double A_Ti = M_PI*(R_Tit*R_Tit - R_Tih*R_Tih);
+        double R_Tim = 0.5*(R_Tit+R_Tih);
+        double u_Tith_STAT = (C_ph*(-1*D_T_T))/(omega*R_Tim);// Since D_T_T is negative, it has to be flipped to calculate the absolute NGV exit u_th
+        double u_Tia = compute_u_a(m_dot*(1+f),P_3/(R*T_4), T_4, u_Tith_STAT, gam_h, A_Ti);
+        if(std::isnan(u_Tia)){
+            vector_double ret(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
+            return ret;
+        }
+        double beta_NGV = (180/M_PI)*std::atan(u_Tith_STAT/u_Tia);
+        double con_beta_NGV = beta_NGV - 70;
+        // Phi and psi follow the definitions in Dixon and Hall
+        // It is calculated with reference to the turbine tip inlet speed. This is apparently the 
+        // standard but might apply only to axial turbines where blade speed doesn't vary much axially
+        double phi_T = u_Tia / (omega*R_Tit);
+        double psi_T = (C_ph*(-D_T_T)) / (omega*omega*R_Tom*R_Tom);//D_T_T is flipped here also to follow work coefficient convention
+        // Phi and psi constraints are for the smith chart for axial gas turbines in dixon and hall.
+        // Smith believed that the losses were proportional to the average kinetic energy in the row,
+        // and correlated this with empirically measured losses.
+        // If this is true, these phi and psi constraints should hold for any topology.
+        double con_phi_T = std::abs(phi_T - (0.5*(min_phi_T+max_phi_T))) - (0.5*(max_phi_T - min_phi_T)); // Flow coefficient in appropriate range
+        double con_psi_T = std::abs(psi_T - (0.5*(min_psi_T+max_psi_T))) - (0.5*(max_psi_T - min_psi_T)); // Loading coefficient in appropriate range
+        double u_Ti_STAT = std::pow(u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia,0.5);
+        double D_Ts_NGV = -1*(u_Ti_STAT*u_Ti_STAT) / (2*C_ph);
+        double Ts_Ti = T_4 + D_Ts_NGV;
+        double Ps_Ti = P_3 * std::pow(Ts_Ti/T_4, (gam_h)/(gam_h-1));
+        double DoR = 1 - (D_Ts_NGV/D_T_T);
+        double con_DoR = std::abs(0.4 - DoR) - 0.1; // Degree of reaction of turbine between 0.3 and 0.5
+        double M_NGVo = std::pow((u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia)/(gam_h*R*Ts_Ti),0.5);
+        double con_M_NGVo = M_NGVo - 0.8; // Mach in NGV exit less than 0.8
+        double u_Tith_ROT = u_Tith_STAT - omega*R_Tim;
+        double M_Ti = std::pow((u_Tith_ROT*u_Tith_ROT + u_Tia*u_Tia)/(gam_h*R*Ts_Ti),0.5);
+        double con_M_Ti = M_Ti - 0.8;// Turbine inlet mach less than 0.8
+        double beta_Tim = (180/M_PI)*std::atan(u_Tith_ROT/u_Tia);
+        double con_beta_Tim = std::abs(beta_Tim) - 65;// Turbine inlet angle less than 65 degrees
+        double u_Toa = compute_u_a(m_dot * (1+f), P_5/(R*T_5), T_5, 0, gam_h, A_To);
+        if(std::isnan(u_Toa)){
+            vector_double ret(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
+            return ret;
+        }
+        double beta_Tom = (180/M_PI)*std::atan((omega*R_Tom)/u_Toa);
+        double con_beta_Tom = beta_Tom - 65; // Turbine outlet meridional blade angle less than 65 degrees - this shouldn't be active
+        double con_T_width = 0.009 - (R_Tit - R_Tih);// Turbine inlet annulus width greater than 9mm
+        // double con_turbine_diffusion = u_Tia - u_Toa; // Flow must accelerate through turbine to avoid separation
+        double Ts_To = T_5 - (u_Toa*u_Toa)/(2*C_ph);
+        double con_turbine_outlet_width = 0.009 - A_To/(2*M_PI*R_Tom); // Turbine outlet width more than 9mm
+        double R_Tot = R_Tom + A_To/(4*M_PI*R_Tom);
+        double M_Tom = std::pow((u_Toa*u_Toa + omega*omega*R_Tom*R_Tom)/(gam_h*R*Ts_To),0.5);
+        double con_M_Tom = M_Tom - 0.8; // Relative Mach at turbine exit less than 0.8
+        double M_Toa = u_Toa / std::pow((gam_h*R*Ts_To),0.5);
+        double sigma_max_Ti = 0.5*omega*omega*rho_C*(R_Tit*R_Tit - R_Tih*R_Tih);
+        double con_sigma_max_Ti = FOS_T * sigma_max_Ti - sigma_max_T;// FOS at compressor inlet blade root
+        double R_Toh = R_Tom - A_To/(4*M_PI*R_Tom);
+        double con_R_Toh = 0.004 - R_Toh;// Inner radius of turbine outlet must be at least 4mm
+        double sigma_max_To = 0.5*omega*omega*rho_C*(R_Tot*R_Tot - R_Toh*R_Toh);
+        double con_sigma_max_To = FOS_T * sigma_max_To - sigma_max_T;// FOS at compressor inlet blade root
+        double con_turbine_tip_geom = R_Tit - R_Tot;
+        double con_turbine_hub_geom = R_Toh - R_Tih;
+
+        double u_NGVoth_tip = (R_Tim / R_Tit) * u_Tith_STAT;// NGV outlet theta tip
+        double u_NGVoa_tip = compute_u_a(m_dot*(1+f),P_3/(R*T_4), T_4, u_NGVoth_tip, gam_h, A_Ti);
+        double beta_NGVot = (180/M_PI)*std::atan(u_NGVoth_tip / u_NGVoa_tip);
+        double u_Tith_tip_ROT = u_NGVoth_tip - omega*R_Tit;
+        double beta_Tit = (180/M_PI)*std::atan((u_Tith_tip_ROT)/u_NGVoa_tip);
+        double u_Toa_tip = u_Toa;
+        double beta_Tot = (180/M_PI)*std::atan((omega*R_Tot)/u_Toa_tip);
+
+
+        double u_NGVoth_hub = (R_Tim / R_Tih) * u_Tith_STAT;// NGV outlet theta hub
+        double u_NGVoa_hub = compute_u_a(m_dot*(1+f),P_3/(R*T_4), T_4, u_NGVoth_hub, gam_h, A_Ti);
+        double beta_NGVoh = (180/M_PI)*std::atan(u_NGVoth_hub / u_NGVoa_hub);
+        double u_Tith_hub_ROT = u_NGVoth_hub - omega*R_Tih;
+        double beta_Tih = (180/M_PI)*std::atan((u_Tith_hub_ROT)/u_NGVoa_hub);
+        double u_Toa_hub = u_Toa;
+        double beta_Toh = (180/M_PI)*std::atan((omega*R_Toh)/u_Toa_hub);
+        
+
+        // Nozzle
+        double Ts_6 = T_5*std::pow(Ps_6/P_5,(gam_h-1)/gam_h);
+        double a_6 = std::pow(gam_h*R*Ts_6,0.5);
+        double u_6 = a_6*std::pow((2/(gam_h-1))*(std::pow((P_5/Ps_6),(gam_h-1)/gam_h)-1),0.5);
+        double M_6 = u_6/a_6;
+        double R_6 = std::pow((m_dot*(1+f))/(u_6*(Ps_0/(R*Ts_6)))/M_PI,0.5);
+        double eta_thermal = ((1+f)*u_6*u_6)/(2*f*h_ker);
+        double F = m_dot*((1+f)*u_6 - u_0);
+        double con_F = 70-F; // Thrust at least 70N
+        // Mass model
+        double m_Compressor = std::abs((M_PI*(R_Cih*R_Cih*R_Cih - R_Coh*R_Coh*R_Coh)))*(rho_C/3);
+        double m_Turbine = std::abs((M_PI*(R_Tih*R_Tih*R_Tih - R_Toh*R_Toh*R_Toh)))*(rho_T/3);
+        // Diffuser mass proportional to spec speed and component radius squared
+        double m_Diffuser = (0.07146/(0.03*0.03))*(R_Com*R_Com)*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4))*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4));
+        double m_NGV = (0.2885/(0.0315287*0.0315287))*(R_Tit*R_Tit);
+
+        double m_Duct = 2*M_PI*R_Com*R_Com*0.001*2700;
+        double m_Nozzle = 2*M_PI*R_Tit*R_Tot*0.001*8000;
+
+        double len_Combustor = u_Tia * 0.0005 + 0.01;
+        double m_Shaft = (len_Combustor+R_Com+0.02) * M_PI * 0.005 * 0.005 * 8000;
+        double R_overall = (R_Com * (0.036/0.03) * (0.4/(spec_speed_C<0.4?spec_speed_C:0.4)));
+        double m_Wall = 2* M_PI * R_overall * (len_Combustor + 0.02) * 0.00065 * 8000;
+        double m_Combustor = 2*M_PI*(0.5*R_overall + 0.8*R_overall)*len_Combustor*0.00065*8000;
+
+        double m_total = 1.12*(m_Compressor + m_Turbine+
+                        m_Diffuser + m_NGV + m_Duct+
+                        m_Nozzle+m_Shaft+m_Wall+m_Combustor);
+        double con_max_mass = m_total - 1.16;
+        double con_min_thrust = 444.8 - F;
+
+
+        //Calculate objective
+        double Isp = (F/(m_dot*f*9.8066));
+        vector_double ret = {F,Isp,m_total,
+            R_overall,
+            spec_speed_C,
+            phi_T,
+            psi_T,
+            T_4,
+            P_3/Ps_0,
+            eta_thermal,
+            M_Ci_tip,
+            M_Co_ROT,
+            M_Co_STAT,
+            M_NGVo,
+            M_Ti,
+            M_Tom
+            };
+        // A physically impossible engine will usually result in a bunch of NaNs,
+        // and bad inputs might give Inf due to division by zero.
+        // If this happens, return a big penalty
+        if (invalid_ret(ret)){
+            ret = vector_double(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
+        }
+        return ret;
+    }catch(boost::math::evaluation_error){
+        // If the compute_u_a throws an error, return high penalty immediately
+        vector_double ret(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
+        return ret;
+    }
+}
