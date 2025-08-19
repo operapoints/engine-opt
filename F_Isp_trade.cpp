@@ -47,9 +47,9 @@ problem_jet_calc make_pjc_UDP(double k_F, double k_Isp, double k_mass){
 
 std::pair<double, pagmo::vector_double> get_best_objective(problem_jet_calc& pjc_UDP){
     pagmo::problem pjc{pjc_UDP};
-    algorithm algo{gaco(4000,63,1,0,0.01,100,7,4000)};    
+    algorithm algo{gaco(5000,63,1,0,0.01,100,7,5000)};    
     archipelago archi(32u, algo, pjc, 1000u);
-    archi.evolve(1);
+    archi.evolve(3);
     archi.wait_check();
     double best_champion_score = std::numeric_limits<double>::infinity();
     int best_isl_idx = 0;

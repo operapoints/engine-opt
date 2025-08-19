@@ -37,7 +37,7 @@ std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
     // auto A_To = x[10]; // m^2   - Turbine outlet area
     // auto R_Tom = x[11];// m     - Turbine exit meanline radius
     vector_double lb = {0,0,600,0.005,0.005,0.0001,0,0,0.005,0.005,0.0001,0.005};
-    vector_double ub = {20000,300,1100,.1,.1,0.05,1,300,.1,.1,0.1,0.1};
+    vector_double ub = {20000,300,1100,0.2,0.2,0.2,0.2,300,.2,.2,0.2,0.2};
     std::pair<vector_double, vector_double> ret(lb,ub);
     return ret;
 }
