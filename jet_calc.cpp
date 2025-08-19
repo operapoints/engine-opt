@@ -2,6 +2,7 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <algorithm>
 #include <initializer_list>
 #include <utility>
 #include <sstream>
@@ -567,6 +568,8 @@ vector_double problem_jet_calc::evaluate(const vector_double &x) const{
         double len_Combustor = u_Tia * 0.0005 + 0.01;
         double m_Shaft = (len_Combustor+R_Com+0.02) * M_PI * 0.005 * 0.005 * 8000;
         double R_overall = (R_Com * (0.036/0.03) * (0.4/(spec_speed_C<0.4?spec_speed_C:0.4)));
+        R_overall = std::max(R_overall,R_Tit);
+        R_overall = std::max(R_overall,R_Tom+(A_To/(4*M_PI*R_Tom)));
         double m_Wall = 2* M_PI * R_overall * (len_Combustor + 0.02) * 0.00065 * 8000;
         double m_Combustor = 2*M_PI*(0.5*R_overall + 0.8*R_overall)*len_Combustor*0.00065*8000;
 
