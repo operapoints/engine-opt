@@ -105,8 +105,8 @@ int main(){
     // This code calculates n_steps separate objective functions, with the relative weightings
     // of mass and Isp ranging linearly. The first steps prioritize mass, the last steps prioritize Isp
 
-    int n_steps = 20;
-    double weighting_step = 1/(n_steps-1);
+    int n_steps = 11;
+    double weighting_step = 1./(static_cast<double>(n_steps)-1.);
     std::vector<std::vector<double>> data = {};
     std::vector<std::vector<double>> ch_xs = {};
 
@@ -125,7 +125,8 @@ int main(){
     printf("Wrote %u step out of %u\n", 2, n_steps);
 
     for (int i=1;i<=n_steps-2;i++){
-        auto pjc_UDP = make_pjc_UDP(0,(1./best_Isp)*i*weighting_step,(1./best_mass)*(1-(1*weighting_step)));
+        auto pjc_UDP = make_pjc_UDP(0,(1./best_Isp)*static_cast<double>(i)*weighting_step,(best_mass)*(1-(static_cast<double>(i)*weighting_step)));
+        printf("Beginning optimization with objective weights k_mass = %f, k_Isp = %f\n",pjc_UDP.k_mass,pjc_UDP.k_Isp);
         auto res = get_best_objective(pjc_UDP);
         data.insert(data.end()-1,pjc_obj.evaluate(res.second));
         ch_xs.insert(ch_xs.end()-1,res.second);
