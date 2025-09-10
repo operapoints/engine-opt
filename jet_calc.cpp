@@ -20,7 +20,7 @@ vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return 24;
+    return 23;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
@@ -73,15 +73,16 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double A_Ci = M_PI*(R_Cit*R_Cit - R_Cih*R_Cih);
         double m_dot = rhos_2*u_i*A_Ci;
         // Compressor
+        // phi and psi are calculated according to https://manual.cfturbo.com/en/index.html?md_parameters_axvent.html
+        double phi_C = (u_i*(A_Ci/(M_PI*R_Com*R_Com))) / (omega*R_Com);
+        double psi_C = (2*C_pc*D_T_C) / (omega*omega*R_Com*R_Com);
+        double eta_C = 1-zeta_C*(((2*phi_C*phi_C)/psi_C)+(psi_C/2)+(1/psi_C)-1);
         double P_spC = C_pc*D_T_C;
         double T_3 = T_0 + D_T_C;
         double P_3 = P_0*std::pow((T_0+eta_C*D_T_C)/T_0,(gam_c/(gam_c-1)));
 
         // Compressor constraints
         // Velocities are positive in the direction of rotation
-        // phi and psi are calculated according to https://manual.cfturbo.com/en/index.html?md_parameters_axvent.html
-        double phi_C = (u_i*(A_Ci/(M_PI*R_Com*R_Com))) / (omega*R_Com);
-        double psi_C = (2*C_pc*D_T_C) / (omega*omega*R_Com*R_Com);
         double spec_speed_C = std::pow(phi_C,0.5)/std::pow(psi_C,0.75);
         double spec_dia_C = std::pow(psi_C,0.25)/std::pow(phi_C,0.5);
         // The expression for the cordier line is based on the compressor cordier line at https://manual.cfturbo.com/en/index.html?cordier.html
@@ -255,7 +256,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
             con_beta_NGV, 
             con_beta_Tim, 
             con_beta_Tom, 
-            con_cordier_compressor, 
+            // con_cordier_compressor, 
             con_Diff_C, 
             con_DoR, 
             con_M_Ci_tip, 
@@ -306,8 +307,8 @@ bool problem_jet_calc::is_cordier(double sigma, double delta) const{
     if(sigma>=0.8 && sigma < 2.5){
         ideal_delta = 1.61299*std::pow(sigma, -0.23543);
     }
-    min_delta = 0.9 * ideal_delta;
-    max_delta = 1.1 * ideal_delta;
+    min_delta = 0.99 * ideal_delta;
+    max_delta = 1.01 * ideal_delta;
     return (delta <= max_delta && delta >= min_delta);
 }
 
@@ -406,15 +407,16 @@ vector_double problem_jet_calc::evaluate(const vector_double &x) const{
         double A_Ci = M_PI*(R_Cit*R_Cit - R_Cih*R_Cih);
         double m_dot = rhos_2*u_i*A_Ci;
         // Compressor
+        // phi and psi are calculated according to https://manual.cfturbo.com/en/index.html?md_parameters_axvent.html
+        double phi_C = (u_i*(A_Ci/(M_PI*R_Com*R_Com))) / (omega*R_Com);
+        double psi_C = (2*C_pc*D_T_C) / (omega*omega*R_Com*R_Com);
+        double eta_C = 1-zeta_C*(((2*phi_C*phi_C)/psi_C)+(psi_C/2)+(1/psi_C)-1);
         double P_spC = C_pc*D_T_C;
         double T_3 = T_0 + D_T_C;
         double P_3 = P_0*std::pow((T_0+eta_C*D_T_C)/T_0,(gam_c/(gam_c-1)));
 
         // Compressor constraints
         // Velocities are positive in the direction of rotation
-        // phi and psi are calculated according to https://manual.cfturbo.com/en/index.html?md_parameters_axvent.html
-        double phi_C = (u_i*(A_Ci/(M_PI*R_Com*R_Com))) / (omega*R_Com);
-        double psi_C = (2*C_pc*D_T_C) / (omega*omega*R_Com*R_Com);
         double spec_speed_C = std::pow(phi_C,0.5)/std::pow(psi_C,0.75);
         double spec_dia_C = std::pow(psi_C,0.25)/std::pow(phi_C,0.5);
         // The expression for the cordier line is based on the compressor cordier line at https://manual.cfturbo.com/en/index.html?cordier.html

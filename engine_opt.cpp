@@ -13,6 +13,15 @@
 
 #include "jet_calc.h"
 
+
+problem_jet_calc make_pjc_UDP(double k_F, double k_Isp, double k_mass){
+    problem_jet_calc pjc_UDP;
+    pjc_UDP.k_F = k_F;
+    pjc_UDP.k_Isp = k_Isp;
+    pjc_UDP.k_mass = k_mass;
+    return pjc_UDP;
+}
+
 int main(){
     // auto omega = x[0]; // rad/s - shaft speed
     // auto u_i = x[1];   // m/s   - compressor inlet velocity
@@ -26,23 +35,23 @@ int main(){
     // auto R_Tit = x[9]; // m     - Turbine inlet tip radius
     // auto A_To = x[10]; // m^2   - Turbine outlet area
     // auto R_Tom = x[11];// m     - Turbine exit meanline velocity
-    problem_jet_calc pjc_obj;
+    problem_jet_calc pjc_UDP = make_pjc_UDP(0.,0.,1.);
     #ifdef EVAL_JET_CALC
-    // Balance
-    pagmo::vector_double x1 = {11475.8, 135.212, 1097.15, 0.00501128, 0.0206151, 0.00124931, 0.0299996, 62.201, 0.0154871, 0.0315287, 0.00210709, 0.0188079, };
-
-    pagmo::vector_double x2 = {11095.5, 140.063, 1099.58, 0.00500161, 0.0210375, 0.00149369, 0.0312871, 63.1404, 0.0118135, 0.03243, 0.0014575, 0.0180168, };
+    // Cordier
+    pagmo::vector_double x1 = {4692.22, 127.535, 1099.76, 0.00500402, 0.0513107, 0.00649846, 0.081752, 63.917, 0.0291804, 0.0769529, 0.00871538, 0.0441907, };
+    // Kin model
+    pagmo::vector_double x2 = {4623.41, 133.762, 1099.54, 0.00623697, 0.0513455, 0.00532691, 0.0583791, 56.5996, 0.0288133, 0.0772631, 0.0094041, 0.0450207, };
     // Max thrust
     pagmo::vector_double x3 = {14684.1, 125.722, 991.887, 0.00504372, 0.0164868, 0.000539293, 0.0299262, 104.827, 0.0155055, 0.0245546, 0.00169747, 0.0209158, };
-    pjc_obj.fitness(x1);
-    pjc_obj.fitness(x2);
-    pjc_obj.fitness(x3);
+    pjc_UDP.fitness(x1);
+    pjc_UDP.fitness(x2);
+    pjc_UDP.fitness(x3);
     #endif
-    pagmo::problem pjc{pjc_obj};
+    pagmo::problem pjc{pjc_UDP};
     std::cout << pjc;
-    algorithm algo{gaco(3000,63,1,0,0.01,100,7,3000)};    
-    archipelago archi(32u, algo, pjc, 1000u);
-    archi.evolve(1);
+    algorithm algo{gaco(5000,63,1,0,0.01,100,7,5000)};    
+    archipelago archi(32u, algo, pjc, 3000u);
+    archi.evolve(3);
     archi.wait_check();
 
     // 6 - Print the fitness of the best solution in each island.

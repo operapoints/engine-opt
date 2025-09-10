@@ -1,7 +1,7 @@
 #ifndef JET_CALC_H
 #define JET_CALC_H
 
-// #define EVAL_JET_CALC
+#define EVAL_JET_CALC
 
 #include <pagmo/problem.hpp>
 #include <pagmo/types.hpp>
@@ -28,7 +28,7 @@ struct problem_jet_calc{
 
         static constexpr double h_ker = 43e+6;
 
-        static constexpr double eta_C = 0.75;
+        static constexpr double zeta_C = 0.4;
         static constexpr double eta_T = 0.75;
 
         static constexpr double sigma_C = 1.6;
