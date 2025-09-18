@@ -1,7 +1,7 @@
 #ifndef JET_CALC_H
 #define JET_CALC_H
 
-#define EVAL_JET_CALC
+//#define EVAL_JET_CALC
 
 #include <pagmo/problem.hpp>
 #include <pagmo/types.hpp>
@@ -23,13 +23,14 @@ struct problem_jet_calc{
 
         static constexpr double Ts_0 = 298.;
         static constexpr double Ps_0 = 101325.;
-        static constexpr double Ps_6 = Ps_0;
+        static constexpr double Ps_7 = Ps_0;
         static constexpr double u_0 = 0.;
 
         static constexpr double h_ker = 43e+6;
 
         static constexpr double zeta_C = 0.4;
         static constexpr double eta_T = 0.75;
+        static constexpr double eta_fan = 0.75;
 
         static constexpr double sigma_C = 1.6;
 
@@ -44,6 +45,7 @@ struct problem_jet_calc{
         static constexpr double sigma_max_C = 880000000.;// 880MPa for Ti6Al4V
         static constexpr double FOS_T = 2;
         static constexpr double FOS_C = 2;
+        static constexpr double M_max_fan = 1.2;
 
         double k_F;
         double k_Isp;

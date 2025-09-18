@@ -1,11 +1,20 @@
 Cordier:
-Isp:
-Best score: -3115.48
-{2465.32, 63.6427, 926.015, 0.00501546, 0.0708334, 0.00541365, 0.199615, 145.633, 0.136991, 0.146283, 0.0113035, 0.122148, }
-TWR:
-Best score: -0.24246
-{4073.55, 99.9684, 1099.67, 0.00520304, 0.0624072, 0.00667242, 0.0534553, 44.3992, 0.0257221, 0.0863592, 0.0114452, 0.0451303, }
+Mass:
+Best score: -0.164537
+{4692.22, 127.535, 1099.76, 0.00500402, 0.0513107, 0.00649846, 0.081752, 63.917, 0.0291804, 0.0769529, 0.00871538, 0.0441907, }
+Isp : 1984
+sigma: 0.399
+delta: 2.683
 Kin only:
-Isp:
+Mass:
+Best score: -0.250798
+{4623.41, 133.762, 1099.54, 0.00623697, 0.0513455, 0.00532691, 0.0583791, 56.5996, 0.0288133, 0.0772631, 0.0094041, 0.0450207, }
+Isp : 1897
+sigma: 0.440
+delta: 1.819
 
 
+
+I've also been working with the MIT Gas Turbine Lab on novel method for the preliminary design of small jet engines, such as those found on missiles. I was tasked with identifying ways to improve the performance of these small engines, and after some review I focused in on improving compressor design in order to improve thrust to weight ratio. By using a first-principles method which captured the coupling of engine geometry to cycle parameters, I was able to show that a mixed flow compressor offered the best TWR at a small cost to range. This is a significant departure from the radial compressors typically used in modern small jet engines, and my lab is planning to pursue this research direction further in the coming year. As a concurrent side project, I have also undertaken the construction of a 70 newton thrust micro jet engine using this compressor design methodology. I have completed CAD and FEA of the engine and plan to build it over the next few months.
+
+One interesting project that I've completed the design, construction, and successful flight testing of an RC tiltrotor VTOL aircraft. The design involved the creation of a large mathematical model of the aircraft which was used to optimize the aircraft's main sizing parameters, and was then followed by more detailed design iteration with a few aerodynamic analysis tools and Solidworks. I settled on an aircraft with two gimbaling propellers at the wingtips and a single aerodynamic elevator on the tail for control in both hover and forward flight, but due to the complexity of the control algorithms required I had to build and program the main flight electronics from scratch, which included the flight controller and battery pack. After working out some kinks with complex cross-coupling of different control axes in the transition to forward flight, I was able to demonstrate a smooth transition and controlled flight in both vertical and forward flight.

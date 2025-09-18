@@ -20,7 +20,7 @@ vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return 23;
+    return 28;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
@@ -36,8 +36,8 @@ std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
     // auto R_Tit = x[9]; // m     - Turbine inlet tip radius
     // auto A_To = x[10]; // m^2   - Turbine outlet area
     // auto R_Tom = x[11];// m     - Turbine exit meanline radius
-    vector_double lb = {0,0,600,0.005,0.005,0.0001,0,0,0.005,0.005,0.0001,0.005};
-    vector_double ub = {20000,300,1100,0.2,0.2,0.2,0.2,300,.2,.2,0.2,0.2};
+    vector_double lb = {0,0,600,0.005,0.005,0.0001,0,0,0.005,0.005,0.0001,0.005,-300.,1e-6,1e-6,1e-6,1e-6,1e-6};
+    vector_double ub = {20000,300,1100,0.2,0.2,0.2,0.2,300,.2,.2,0.2,0.2,0.,20000,0.2,0.2,300,0.2};
     std::pair<vector_double, vector_double> ret(lb,ub);
     return ret;
 }
@@ -57,6 +57,12 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
     auto R_Tit = x[9]; // m     - Turbine inlet tip radius
     auto A_To = x[10]; // m^2   - Turbine outlet area
     auto R_Tom = x[11];// m     - Turbine exit meanline velocity
+    auto D_T_LPT = x[12];
+    auto omega_LPT = x[13];
+    auto A_LPTo = x[14];
+    auto R_LPTom = x[15];
+    auto u_fani = x[16];
+    auto fan_blade_width = x[17];
     // Variable subscript convention:
     // if u:
     // u_<Component : n><Component axial location : 1><Velocity direction : 1 - 2>_<component radial location : n>
@@ -215,15 +221,57 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double beta_Toh = (180/M_PI)*std::atan((omega*R_Toh)/u_Toa_hub);
         #endif
 
+        //LPT
+
+        double T_6 = T_5 + D_T_LPT;
+        double P_6 = P_5*std::pow((T_5+(D_T_LPT/eta_T))/T_5,(gam_h/(gam_h-1)));
+        double con_LPT_backpres = Ps_7 - P_6;
+        double Ts_fani = T_0 - ((u_fani*u_fani)/(2*C_pc));
+        double Ps_fani = P_0 * std::pow((Ts_fani/T_0),(gam_c/(gam_c-1)));
+        double rhos_fani = Ps_fani/(R*Ts_fani);
+        double R_M_max_fan = std::pow((M_max_fan*M_max_fan*gam_c*R*Ts_fani - u_fani*u_fani)/(omega_LPT*omega_LPT),0.5);
+        double R_LPT_tip = R_LPTom + A_LPTo/(4*M_PI*R_LPTom);
+        double R_fan = fan_blade_width + R_LPT_tip;
+        double con_Mach_fan_tip = R_fan - R_M_max_fan;
+        double A_fan = M_PI*(R_fan*R_fan - R_LPT_tip*R_LPT_tip);
+        double m_dot_fan = A_fan * u_fani* rhos_fani;
+        double D_T_fan = -(C_ph*m_dot*(1+f)*D_T_LPT)/(C_pc*m_dot_fan);
+        double T_fano = D_T_fan+T_0;
+        double P_fano = P_0*std::pow((T_0+eta_fan*D_T_fan)/T_0,(gam_c/(gam_c-1)));
+
+        // Fan nozzle
+        double Ts_fannoz = T_fano*std::pow(Ps_7/P_fano,(gam_c-1)/gam_c);
+        double a_fannoz = std::pow(gam_c*R*Ts_fannoz,0.5);
+        double u_fannoz = a_fannoz*std::pow((2/(gam_c-1))*(std::pow((P_fano/Ps_7),(gam_c-1)/gam_c)-1),0.5);
+        double F_fan = m_dot_fan*(u_fannoz - u_0);
+        double con_max_R_fan = R_fan - 0.1;
+
+
+
+
+        //LPT constraints
+        double u_LPToa = compute_u_a(m_dot*(1+f),P_6/(R*T_6),T_6, 0,gam_h,A_LPTo);
+        if(std::isnan(u_LPToa)){
+            vector_double ret(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
+            return ret;
+        }
+        double phi_LPT = u_LPToa/(omega_LPT*R_LPTom);
+        double psi_LPT = (-C_ph*D_T_LPT)/(omega_LPT*R_LPTom*omega_LPT*R_LPTom);
+        double con_phi_LPT = std::abs(phi_LPT - (0.5*(min_phi_T+max_phi_T))) - (0.5*(max_phi_T - min_phi_T)); // Flow coefficient in appropriate range
+        double con_psi_LPT = std::abs(psi_LPT - (0.5*(min_psi_T+max_psi_T))) - (0.5*(max_psi_T - min_psi_T)); // Loading coefficient in appropriate range
+
+
+
         // Nozzle
-        double Ts_6 = T_5*std::pow(Ps_6/P_5,(gam_h-1)/gam_h);
-        double a_6 = std::pow(gam_h*R*Ts_6,0.5);
-        double u_6 = a_6*std::pow((2/(gam_h-1))*(std::pow((P_5/Ps_6),(gam_h-1)/gam_h)-1),0.5);
-        double M_6 = u_6/a_6;
+        double Ts_7 = T_6*std::pow(Ps_7/P_6,(gam_h-1)/gam_h);
+        double a_7 = std::pow(gam_h*R*Ts_7,0.5);
+        double u_7 = a_7*std::pow((2/(gam_h-1))*(std::pow((P_6/Ps_7),(gam_h-1)/gam_h)-1),0.5);
+        double M_7 = u_7/a_7;
         #ifdef EVAL_JET_CALC
-        double R_6 = std::pow((m_dot*(1+f))/(u_6*(Ps_0/(R*Ts_6)))/M_PI,0.5);
+        double R_7 = std::pow((m_dot*(1+f))/(u_7*(Ps_0/(R*Ts_7)))/M_PI,0.5);
         #endif
-        double F = m_dot*((1+f)*u_6 - u_0);
+        double F_core = m_dot*((1+f)*u_7 - u_0);
+        double F = F_fan + F_core;
         double con_F = 70-F; // Thrust at least 70N
         // Mass model
         double m_Compressor = std::abs((M_PI*(R_Cih*R_Cih*R_Cih - R_Coh*R_Coh*R_Coh)))*(rho_C/3);
@@ -275,6 +323,11 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
             con_sigma_max_Ti,
             con_sigma_max_To,
             con_min_thrust,
+            con_LPT_backpres,
+            con_phi_LPT,
+            con_psi_LPT,
+            con_max_R_fan,
+            con_Mach_fan_tip,
             };
         // A physically impossible engine will usually result in a bunch of NaNs,
         // and bad inputs might give Inf due to division by zero.
@@ -549,9 +602,9 @@ vector_double problem_jet_calc::evaluate(const vector_double &x) const{
         
 
         // Nozzle
-        double Ts_6 = T_5*std::pow(Ps_6/P_5,(gam_h-1)/gam_h);
+        double Ts_6 = T_5*std::pow(Ps_7/P_5,(gam_h-1)/gam_h);
         double a_6 = std::pow(gam_h*R*Ts_6,0.5);
-        double u_6 = a_6*std::pow((2/(gam_h-1))*(std::pow((P_5/Ps_6),(gam_h-1)/gam_h)-1),0.5);
+        double u_6 = a_6*std::pow((2/(gam_h-1))*(std::pow((P_5/Ps_7),(gam_h-1)/gam_h)-1),0.5);
         double M_6 = u_6/a_6;
         double R_6 = std::pow((m_dot*(1+f))/(u_6*(Ps_0/(R*Ts_6)))/M_PI,0.5);
         double eta_thermal = ((1+f)*u_6*u_6)/(2*f*h_ker);

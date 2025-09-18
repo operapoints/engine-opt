@@ -180,9 +180,9 @@ std::vector<double> problem_jet_calc::compute_contour_val(double T_4, double OPR
         // #endif
 
         // Nozzle
-        double Ts_6 = T_5*std::pow(Ps_6/P_5,(gam_h-1)/gam_h);
+        double Ts_6 = T_5*std::pow(Ps_7/P_5,(gam_h-1)/gam_h);
         double a_6 = std::pow(gam_h*R*Ts_6,0.5);
-        double u_6 = a_6*std::pow((2/(gam_h-1))*(std::pow((P_5/Ps_6),(gam_h-1)/gam_h)-1),0.5);
+        double u_6 = a_6*std::pow((2/(gam_h-1))*(std::pow((P_5/Ps_7),(gam_h-1)/gam_h)-1),0.5);
         #ifdef EVAL_JET_CALC
         double R_6 = std::pow((m_dot*(1+f))/(u_6*(Ps_0/(R*Ts_6)))/M_PI,0.5);
         #endif
