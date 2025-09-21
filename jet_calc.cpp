@@ -20,7 +20,7 @@ vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return 28;
+    return 30;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
@@ -80,7 +80,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double m_dot = rhos_2*u_i*A_Ci;
         // Compressor
         // phi and psi are calculated according to https://manual.cfturbo.com/en/index.html?md_parameters_axvent.html
-        double phi_C = (u_i*(A_Ci/(M_PI*R_Com*R_Com))) / (omega*R_Com);
+        double phi_C = (u_i) / (omega*R_Com);
         double psi_C = (2*C_pc*D_T_C) / (omega*omega*R_Com*R_Com);
         double eta_C = 1-zeta_C*(((2*phi_C*phi_C)/psi_C)+(psi_C/2)+(1/psi_C)-1);
         double P_spC = C_pc*D_T_C;
@@ -193,11 +193,11 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double M_Tom = std::pow((u_Toa*u_Toa + omega*omega*R_Tom*R_Tom)/(gam_h*R*Ts_To),0.5);
         double con_M_Tom = M_Tom - 0.8; // Relative Mach at turbine exit less than 0.8
         double M_Toa = u_Toa / std::pow((gam_h*R*Ts_To),0.5);
-        double sigma_max_Ti = 0.5*omega*omega*rho_C*(R_Tit*R_Tit - R_Tih*R_Tih);
+        double sigma_max_Ti = 0.5*omega*omega*rho_T*(R_Tit*R_Tit - R_Tih*R_Tih);
         double con_sigma_max_Ti = FOS_T * sigma_max_Ti - sigma_max_T;// FOS at compressor inlet blade root
         double R_Toh = R_Tom - A_To/(4*M_PI*R_Tom);
         double con_R_Toh = 0.004 - R_Toh;// Inner radius of turbine outlet must be at least 4mm
-        double sigma_max_To = 0.5*omega*omega*rho_C*(R_Tot*R_Tot - R_Toh*R_Toh);
+        double sigma_max_To = 0.5*omega*omega*rho_T*(R_Tot*R_Tot - R_Toh*R_Toh);
         double con_sigma_max_To = FOS_T * sigma_max_To - sigma_max_T;// FOS at compressor inlet blade root
         double con_turbine_tip_geom = R_Tit - R_Tot;
         double con_turbine_hub_geom = R_Toh - R_Tih;
@@ -230,21 +230,28 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double Ps_fani = P_0 * std::pow((Ts_fani/T_0),(gam_c/(gam_c-1)));
         double rhos_fani = Ps_fani/(R*Ts_fani);
         double R_M_max_fan = std::pow((M_max_fan*M_max_fan*gam_c*R*Ts_fani - u_fani*u_fani)/(omega_LPT*omega_LPT),0.5);
-        double R_LPT_tip = R_LPTom + A_LPTo/(4*M_PI*R_LPTom);
-        double R_fan = fan_blade_width + R_LPT_tip;
+        double R_LPTot = R_LPTom + A_LPTo/(4*M_PI*R_LPTom);
+        double R_LPToh = R_LPTom - A_LPTo/(4*M_PI*R_LPTom);
+
+
+        double sigma_max_LPTo = 0.5*omega_LPT*omega_LPT*rho_T*(R_LPTot*R_LPTot - R_LPToh*R_LPToh);
+        double con_sigma_max_LPTo = FOS_T * sigma_max_LPTo - sigma_max_T;// FOS at compressor inlet blade root
+
+        double R_fan = fan_blade_width + R_LPTot;
         double con_Mach_fan_tip = R_fan - R_M_max_fan;
-        double A_fan = M_PI*(R_fan*R_fan - R_LPT_tip*R_LPT_tip);
+        double A_fan = M_PI*(R_fan*R_fan - R_LPTot*R_LPTot);
         double m_dot_fan = A_fan * u_fani* rhos_fani;
         double D_T_fan = -(C_ph*m_dot*(1+f)*D_T_LPT)/(C_pc*m_dot_fan);
         double T_fano = D_T_fan+T_0;
         double P_fano = P_0*std::pow((T_0+eta_fan*D_T_fan)/T_0,(gam_c/(gam_c-1)));
+        double sigma_max_fano = 0.5*omega_LPT*omega_LPT*rho_T*(R_fan * R_fan - R_LPTot*R_LPTot);
+        double con_sigma_max_fano = FOS_T * sigma_max_fano - sigma_max_T;// FOS at compressor inlet blade root
 
         // Fan nozzle
         double Ts_fannoz = T_fano*std::pow(Ps_7/P_fano,(gam_c-1)/gam_c);
         double a_fannoz = std::pow(gam_c*R*Ts_fannoz,0.5);
         double u_fannoz = a_fannoz*std::pow((2/(gam_c-1))*(std::pow((P_fano/Ps_7),(gam_c-1)/gam_c)-1),0.5);
         double F_fan = m_dot_fan*(u_fannoz - u_0);
-        double con_max_R_fan = R_fan - 0.1;
 
 
 
@@ -258,7 +265,14 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double phi_LPT = u_LPToa/(omega_LPT*R_LPTom);
         double psi_LPT = (-C_ph*D_T_LPT)/(omega_LPT*R_LPTom*omega_LPT*R_LPTom);
         double con_phi_LPT = std::abs(phi_LPT - (0.5*(min_phi_T+max_phi_T))) - (0.5*(max_phi_T - min_phi_T)); // Flow coefficient in appropriate range
-        double con_psi_LPT = std::abs(psi_LPT - (0.5*(min_psi_T+max_psi_T))) - (0.5*(max_psi_T - min_psi_T)); // Loading coefficient in appropriate range
+        double con_psi_LPT = std::abs(psi_LPT - (0.5*(min_psi_T+max_psi_T))) - (0.5*(max_psi_T - min_psi_T)); // Loading coefficient in appropriate range 
+        double phi_fan = (u_fani) / (omega_LPT*R_fan);
+        double psi_fan = (2*C_pc*D_T_fan) / (omega_LPT*omega_LPT*R_fan*R_fan);
+
+        double spec_speed_fan = std::pow(phi_fan,0.5)/std::pow(psi_fan,0.75);
+        double spec_dia_fan = std::pow(psi_fan,0.25)/std::pow(phi_fan,0.5);
+        // The expression for the cordier line is based on the compressor cordier line at https://manual.cfturbo.com/en/index.html?cordier.html
+        double con_cordier_fan = is_cordier(spec_speed_fan, spec_dia_fan)?-1:1;// The compressor must be in range of the Cordier line
 
 
 
@@ -267,21 +281,20 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double a_7 = std::pow(gam_h*R*Ts_7,0.5);
         double u_7 = a_7*std::pow((2/(gam_h-1))*(std::pow((P_6/Ps_7),(gam_h-1)/gam_h)-1),0.5);
         double M_7 = u_7/a_7;
-        #ifdef EVAL_JET_CALC
+        
         double R_7 = std::pow((m_dot*(1+f))/(u_7*(Ps_0/(R*Ts_7)))/M_PI,0.5);
-        #endif
+        
         double F_core = m_dot*((1+f)*u_7 - u_0);
         double F = F_fan + F_core;
         double con_F = 70-F; // Thrust at least 70N
         // Mass model
         double m_Compressor = std::abs((M_PI*(R_Cih*R_Cih*R_Cih - R_Coh*R_Coh*R_Coh)))*(rho_C/3);
-        double m_Turbine = std::abs((M_PI*(R_Tih*R_Tih*R_Tih - R_Toh*R_Toh*R_Toh)))*(rho_T/3);
+        double m_Turbine = M_PI*(R_Tih*R_Tih)*(0.012)*(rho_T);//Turbine height assumed constant at 12mm
         // Diffuser mass proportional to spec speed and component radius squared
         double m_Diffuser = (0.07146/(0.03*0.03))*(R_Com*R_Com)*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4))*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4));
         double m_NGV = (0.2885/(0.0315287*0.0315287))*(R_Tit*R_Tit);
 
         double m_Duct = 2*M_PI*R_Com*R_Com*0.001*2700;
-        double m_Nozzle = 2*M_PI*R_Tit*R_Tot*0.001*8000;
 
         double len_Combustor = u_Tia * 0.0005 + 0.01;
         double m_Shaft = (len_Combustor+R_Com+0.02) * M_PI * 0.005 * 0.005 * 8000;
@@ -289,9 +302,15 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double m_Wall = 2* M_PI * R_overall * (len_Combustor + 0.02) * 0.00065 * 8000;
         double m_Combustor = 2*M_PI*(0.5*R_overall + 0.8*R_overall)*len_Combustor*0.00065*8000;
 
+        double m_LPT = M_PI*(R_LPTot*R_LPTot-R_LPTom*R_LPTom)*0.0015*rho_T;
+        double m_transition = M_PI*(std::abs(R_LPTot*R_LPTot - R_Tot*R_Tot)+std::abs(R_LPToh*R_LPToh - R_Toh*R_Toh))*1.414*0.0015*rho_T;
+        double m_fan = M_PI*(R_fan*R_fan - R_LPTot*R_LPTot)*0.0015*rho_T;
+        double m_nozzle = M_PI*(std::abs(R_7*R_7 - R_LPTot*R_LPTot))*1.414*0.0015*rho_T;
+
         double m_total = 1.12*(m_Compressor + m_Turbine+
                         m_Diffuser + m_NGV + m_Duct+
-                        m_Nozzle+m_Shaft+m_Wall+m_Combustor);
+                        m_nozzle+m_Shaft+m_Wall+m_Combustor+
+                        m_LPT+m_transition+m_fan);
         double con_max_mass = m_total - 1.16;
         double con_min_thrust = 444.8 - F;
 
@@ -326,8 +345,10 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
             con_LPT_backpres,
             con_phi_LPT,
             con_psi_LPT,
-            con_max_R_fan,
             con_Mach_fan_tip,
+            con_cordier_fan,
+            con_sigma_max_fano,
+            con_sigma_max_LPTo
             };
         // A physically impossible engine will usually result in a bunch of NaNs,
         // and bad inputs might give Inf due to division by zero.
@@ -348,7 +369,7 @@ bool problem_jet_calc::is_cordier(double sigma, double delta) const{
     double min_delta{};
     double max_delta{};
 
-    if(sigma<0.05 || sigma>2.5){
+    if(sigma<0.05 || sigma>10.){
         return false;
     }
     if(sigma>=0.05 && sigma < 0.4){
@@ -357,11 +378,11 @@ bool problem_jet_calc::is_cordier(double sigma, double delta) const{
     if(sigma>=0.4 && sigma < 0.8){
         ideal_delta = 1.46477*std::pow(sigma, -0.66742);
     }
-    if(sigma>=0.8 && sigma < 2.5){
+    if(sigma>=0.8 && sigma < 10.){
         ideal_delta = 1.61299*std::pow(sigma, -0.23543);
     }
-    min_delta = 0.99 * ideal_delta;
-    max_delta = 1.01 * ideal_delta;
+    min_delta = 0.9 * ideal_delta;
+    max_delta = 1.1 * ideal_delta;
     return (delta <= max_delta && delta >= min_delta);
 }
 

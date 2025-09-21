@@ -43,7 +43,7 @@ struct problem_jet_calc{
         static constexpr double rho_C = 4450.;// Ti6Al4V
         static constexpr double sigma_max_T = 600000000.;// 600MPa for Inconel 718 at 1100K, source: https://www.vdm-metals.com/fileadmin/user_upload/Downloads/Data_Sheets/Data_Sheet_VDM_Alloy_718.pdf
         static constexpr double sigma_max_C = 880000000.;// 880MPa for Ti6Al4V
-        static constexpr double FOS_T = 2;
+        static constexpr double FOS_T = 1.5;
         static constexpr double FOS_C = 2;
         static constexpr double M_max_fan = 1.2;
 
