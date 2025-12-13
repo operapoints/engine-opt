@@ -38,8 +38,8 @@ int main(){
     #endif
     pagmo::problem pjc{pjc_obj};
     std::cout << pjc;
-    algorithm algo{gaco(10000,63,1,0,0.01,1000,7,1000)};    
-    archipelago archi(32u, algo, pjc, 10000u);
+    algorithm algo{gaco(5000,63,1,0,0.01,100,7,5000)};    
+    archipelago archi(32u, algo, pjc, 3000u);
     archi.evolve(1);
     archi.wait_check();
 

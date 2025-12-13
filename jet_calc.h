@@ -1,7 +1,7 @@
 #ifndef JET_CALC_H
 #define JET_CALC_H
 
-#define EVAL_JET_CALC
+// #define EVAL_JET_CALC
 
 #include <pagmo/problem.hpp>
 #include <pagmo/types.hpp>
