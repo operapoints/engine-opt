@@ -10,8 +10,13 @@ I installed pagmo2 using spack, which worked:
 ```
 spack install pagmo2
 ```
-Then, cd back into the build directory and build with:
+Then, cd back into the build directory and build the same way as before, but first run:
 
 ```
 spack load pagmo2
+```
+
+To run the program just call it as 
+```
+./engine_opt
 ```
