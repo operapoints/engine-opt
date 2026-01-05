@@ -179,11 +179,11 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double M_Tom = std::pow((u_Toa*u_Toa + omega*omega*R_Tom*R_Tom)/(gam_h*R*Ts_To),0.5);
         double con_M_Tom = M_Tom - 0.8; // Relative Mach at turbine exit less than 0.8
         double M_Toa = u_Toa / std::pow((gam_h*R*Ts_To),0.5);
-        double sigma_max_Ti = 0.5*omega*omega*rho_C*(R_Tit*R_Tit - R_Tih*R_Tih);
+        double sigma_max_Ti = 0.5*omega*omega*rho_T*(R_Tit*R_Tit - R_Tih*R_Tih);
         double con_sigma_max_Ti = FOS_T * sigma_max_Ti - sigma_max_T;// FOS at compressor inlet blade root
         double R_Toh = R_Tom - A_To/(4*M_PI*R_Tom);
         double con_R_Toh = 0.004 - R_Toh;// Inner radius of turbine outlet must be at least 4mm
-        double sigma_max_To = 0.5*omega*omega*rho_C*(R_Tot*R_Tot - R_Toh*R_Toh);
+        double sigma_max_To = 0.5*omega*omega*rho_T*(R_Tot*R_Tot - R_Toh*R_Toh);
         double con_sigma_max_To = FOS_T * sigma_max_To - sigma_max_T;// FOS at compressor inlet blade root
         double con_turbine_tip_geom = R_Tit - R_Tot;
         double con_turbine_hub_geom = R_Toh - R_Tih;
