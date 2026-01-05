@@ -15,6 +15,7 @@ struct problem_jet_calc{
     public:
         // Non-varying parameters
         // Define things like environment parameters and compenent efficiencies here
+        static constexpr double g = 9.8066;
         static constexpr const double R = 287.0;
         static constexpr double gam_c = 1.4;
         static constexpr double gam_h = 1.36;

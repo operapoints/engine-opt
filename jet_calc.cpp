@@ -13,7 +13,7 @@ vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return 23;
+    return 24;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
@@ -30,7 +30,7 @@ std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
     // auto A_To = x[10]; // m^2   - Turbine outlet area
     // auto R_Tom = x[11];// m     - Turbine exit meanline radius
     vector_double lb = {0,0,600,0.005,0.005,0.0001,0,0,0.005,0.005,0.0001,0.005};
-    vector_double ub = {20000,300,1100,0.035,0.035,0.05,0.03,300,0.035,0.035,0.05,0.03};
+    vector_double ub = {20000,300,1100,0.20,0.2,0.2,0.2,300,0.2,0.2,0.05,0.15};
     std::pair<vector_double, vector_double> ret(lb,ub);
     return ret;
 }
@@ -179,11 +179,12 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double M_Tom = std::pow((u_Toa*u_Toa + omega*omega*R_Tom*R_Tom)/(gam_h*R*Ts_To),0.5);
         double con_M_Tom = M_Tom - 0.8; // Relative Mach at turbine exit less than 0.8
         double M_Toa = u_Toa / std::pow((gam_h*R*Ts_To),0.5);
-        double sigma_max_Ti = 0.5*omega*omega*rho_T*(R_Tit*R_Tit - R_Tih*R_Tih);
+        // TODO: Change this back when done
+        double sigma_max_Ti = 0.5*omega*omega*rho_C*(R_Tit*R_Tit - R_Tih*R_Tih);
         double con_sigma_max_Ti = FOS_T * sigma_max_Ti - sigma_max_T;// FOS at compressor inlet blade root
         double R_Toh = R_Tom - A_To/(4*M_PI*R_Tom);
         double con_R_Toh = 0.004 - R_Toh;// Inner radius of turbine outlet must be at least 4mm
-        double sigma_max_To = 0.5*omega*omega*rho_T*(R_Tot*R_Tot - R_Toh*R_Toh);
+        double sigma_max_To = 0.5*omega*omega*rho_C*(R_Tot*R_Tot - R_Toh*R_Toh);
         double con_sigma_max_To = FOS_T * sigma_max_To - sigma_max_T;// FOS at compressor inlet blade root
         double con_turbine_tip_geom = R_Tit - R_Tot;
         double con_turbine_hub_geom = R_Toh - R_Tih;
@@ -216,31 +217,31 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double R_6 = std::pow((m_dot*(1+f))/(u_6*(Ps_0/(R*Ts_6)))/M_PI,0.5);
         #endif
         double F = m_dot*((1+f)*u_6 - u_0);
-        double con_F = 70-F; // Thrust at least 70N
+        double con_F = 444.8-F; // Thrust at least 100lbf
         // Mass model
         double m_Compressor = std::abs((M_PI*(R_Cih*R_Cih*R_Cih - R_Coh*R_Coh*R_Coh)))*(rho_C/3);
         double m_Turbine = std::abs((M_PI*(R_Tih*R_Tih*R_Tih - R_Toh*R_Toh*R_Toh)))*(rho_T/3);
-        // Diffuser mass proportional to spec speed and component radius cubed
-        double m_Diffuser = (0.07146/(0.03*0.03*0.03))*(R_Com*R_Com*R_Com)*(0.4/spec_speed_C);
-        double m_NGV = (0.2885/(0.0315287*0.0315287*0.0315287))*(R_Tit*R_Tit*R_Tit);
+        // Diffuser mass proportional to spec speed and component radius squared
+        double m_Diffuser = (0.07146/(0.03*0.03))*(R_Com*R_Com)*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4))*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4));
+        double m_NGV = (0.2885/(0.0315287*0.0315287))*(R_Tit*R_Tit);
 
         double m_Duct = 2*M_PI*R_Com*R_Com*0.001*2700;
         double m_Nozzle = 2*M_PI*R_Tit*R_Tot*0.001*8000;
 
         double len_Combustor = u_Tia * 0.0005 + 0.01;
         double m_Shaft = (len_Combustor+R_Com+0.02) * M_PI * 0.005 * 0.005 * 8000;
-        double R_overall = (R_Com * (0.036/0.03) * (0.4/spec_speed_C));
-        double m_Wall = 2* M_PI * R_overall * (len_Combustor + 0.02) * 0.001 * 8000;
-        double m_Combustor = 2*M_PI*(0.5*R_overall + 0.8*R_overall)*len_Combustor*0.001;
+        double R_overall = (R_Com * (0.036/0.03) * (0.4/(spec_speed_C<0.4?spec_speed_C:0.4)));
+        double m_Wall = 2* M_PI * R_overall * (len_Combustor + 0.02) * 0.00065 * 8000;
+        double m_Combustor = 2*M_PI*(0.5*R_overall + 0.8*R_overall)*len_Combustor*0.00065*8000;
 
-        double m_total = 1.3*(m_Compressor + m_Turbine+
+        double m_total = 1.12*(m_Compressor + m_Turbine+
                         m_Diffuser + m_NGV + m_Duct+
                         m_Nozzle+m_Shaft+m_Wall+m_Combustor);
 
 
         //Calculate objective
-        double Isp = (F/(m_dot*f*9.8066));
-        vector_double ret = {-(F/75.2493+Isp/2493.95), 
+        double Isp = (F/(m_dot*f*g));
+        vector_double ret = {-(35*(std::min(F/355.86,1.25))+25*std::min(1.50/(3600/Isp),1.25)+10*std::min(F/(g*m_total*10),1.25)), 
             con_beta_Ci_tip, 
             con_beta_Co, 
             con_beta_NGV, 
@@ -264,6 +265,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
             con_sigma_max_Co,
             con_sigma_max_Ti,
             con_sigma_max_To,
+            con_F
             };
         // A physically impossible engine will usually result in a bunch of NaNs,
         // and bad inputs might give Inf due to division by zero.
