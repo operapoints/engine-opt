@@ -26,10 +26,21 @@ int main(){
     // auto R_Tom = x[11];// m     - Turbine exit meanline velocity
     problem_jet_calc pjc_obj;
     #ifdef EVAL_JET_CALC
-    // Balance
-    pagmo::vector_double x1 = {11475.8, 135.212, 1097.15, 0.00501128, 0.0206151, 0.00124931, 0.0299996, 62.201, 0.0154871, 0.0315287, 0.00210709, 0.0188079, };
+    // 10cm
+    pagmo::vector_double x1 = {4648.1, 136.75, 1099.75, 0.0150023, 0.0507001, 0.00750535, 0.0799953, 73.5045, 0.0511641, 0.0774573, 0.00759833, 0.0576068, };
+    // 8cm
+    pagmo::vector_double x2 = {4648.1, 136.75, 1099.75, 0.0150023, 0.0507001, 0.00750535, 0.0799953, 72.5045, 0.0511641, 0.0774573, 0.00759833, 0.0576068, };
+    // int nsteps = 10;
+    // double min_OPR = 1.5;
+    // double max_OPR = 2.2;
+    // for (int i = 0; i < nsteps; i++){
+    //     auto xi = x2;
+    //     double OPRi = min_OPR + (max_OPR - min_OPR)*(float(i)/float(nsteps));
+    //     //xi[7] = 298*(std::pow(OPRi,(0.4/1.4))-1)/0.75;
+    //     auto res = pjc_obj.fitness(xi);
+    //     std::cout << "D T C : " << OPRi << " || Objective : " << -res[0] << "\n";
+    // }
 
-    pagmo::vector_double x2 = {15044.9, 133.092, 1099.95, 0.0050458, 0.0157997, 0.000431372, 0.0299949, 109.67, 0.0154697, 0.0244883, 0.00123787, 0.0158204, };
     // Max thrust
     pagmo::vector_double x3 = {14684.1, 125.722, 991.887, 0.00504372, 0.0164868, 0.000539293, 0.0299262, 104.827, 0.0155055, 0.0245546, 0.00169747, 0.0209158, };
     pjc_obj.fitness(x1);

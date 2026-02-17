@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.27)
 
 project(Engine_Opt LANGUAGES CXX)
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS_DEBUG " -g -O0")
 # string(APPEND CMAKE_CXX_FLAGS_RELEASE " -O3 -DNDEBUG")
-list(APPEND CMAKE_PREFIX_PATH "./pagmo2")
+#list(APPEND CMAKE_PREFIX_PATH "./pagmo2")
 find_package(Pagmo REQUIRED)
 
 find_package(Boost REQUIRED)
