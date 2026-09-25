@@ -1,6 +1,6 @@
 #include <iostream>
 #include <chrono>
-
+#include <iomanip>
 #include <pagmo/algorithm.hpp>
 
 #include <pagmo/algorithms/sade.hpp>
@@ -25,6 +25,7 @@ int main(){
     // auto A_To = x[10]; // m^2   - Turbine outlet area
     // auto R_Tom = x[11];// m     - Turbine exit meanline velocity
     problem_jet_calc pjc_obj;
+    auto start = std::chrono::steady_clock::now();
     #ifdef EVAL_JET_CALC
     // 10cm
     pagmo::vector_double x1 = {4648.1, 136.75, 1099.75, 0.0150023, 0.0507001, 0.00750535, 0.0799953, 73.5045, 0.0511641, 0.0774573, 0.00759833, 0.0576068, };
@@ -63,6 +64,14 @@ int main(){
         }
         std::cout << "}\n";
     }
+    auto end = std::chrono::steady_clock::now();
+
+    double elapsed =
+        std::chrono::duration<double>(end - start).count();
+
+    std::cout << "Execution time: "
+            << std::fixed << std::setprecision(3)
+            << elapsed << " s\n";
 
 
     // pagmo::vector_double x0 = {10183,127,1100,0.003,0.023,0.001,0.0250,65,0.02,0.03,0.002,0.025};
