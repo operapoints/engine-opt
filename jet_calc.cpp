@@ -30,7 +30,7 @@ std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
     // auto A_To = x[10]; // m^2   - Turbine outlet area
     // auto R_Tom = x[11];// m     - Turbine exit meanline radius
     vector_double lb = {0,0,600,0.015,0.015,0.0001,0,0,0.015,0.015,0.0001,0.015};
-    vector_double ub = {20000,300,1100,0.08,0.08,0.05,0.08,300,0.08,0.08,0.05,0.08};
+    vector_double ub = {20000,300,1100,0.08,0.08,0.05,0.2,300,0.2,0.2,0.05,0.2};
     std::pair<vector_double, vector_double> ret(lb,ub);
     return ret;
 }
@@ -125,10 +125,11 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
 
         // Combustor
         double f = (C_ph*T_4 - C_pc*T_3)/(h_ker - C_ph*T_4);
+        double P_4 = 0.94*P_3;
         // Turbine
         double D_T_T = -(P_spC/(C_ph*(1+f)));
         double T_5 = T_4+D_T_T;
-        double P_5 = P_3*std::pow((T_4+(D_T_T/eta_T))/T_4,(gam_h/(gam_h-1)));
+        double P_5 = P_4*std::pow((T_4+(D_T_T/eta_T))/T_4,(gam_h/(gam_h-1)));
         // Turbine constraints
         double A_Ti = M_PI*(R_Tit*R_Tit - R_Tih*R_Tih);
         double R_Tim = 0.5*(R_Tit+R_Tih);
@@ -149,6 +150,8 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         // Smith believed that the losses were proportional to the average kinetic energy in the row,
         // and correlated this with empirically measured losses.
         // If this is true, these phi and psi constraints should hold for any topology.
+        // In reality, higher loading will force longer passage length to prevent separation losses
+        // But as long as psi remains on the low side, the topology will be axial and the assumptions of Smith will hold
         double con_phi_T = std::abs(phi_T - (0.5*(min_phi_T+max_phi_T))) - (0.5*(max_phi_T - min_phi_T));// Flow coefficient in appropriate range
         double con_psi_T = std::abs(psi_T - (0.5*(min_psi_T+max_psi_T))) - (0.5*(max_psi_T - min_psi_T));// Loading coefficient in appropriate range
         double u_Ti_STAT = std::pow(u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia,0.5);
@@ -243,7 +246,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
 
         //Calculate objective and normalize
         double Isp = (F/(m_dot*f*g));
-        vector_double ret = {-(35*(std::min(F/355.86,1.25))+25*std::min(1.50/(3600/Isp),1.25)+10*std::min(F/(g*m_total*10),1.25)), 
+        vector_double ret = {-Isp,//-(35*(std::min(F/355.86,1.25))+25*std::min(1.50/(3600/Isp),1.25)+10*std::min(F/(g*m_total*10),1.25)), 
             con_beta_Ci_tip/70., 
             con_beta_Co/70., 
             con_beta_NGV/70., 

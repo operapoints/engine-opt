@@ -64,12 +64,24 @@ int main() {
 #endif
   pagmo::problem pjc{pjc_obj};
   std::cout << pjc;
-  algorithm algo{gaco(100, 63, 1, 0, 0.01, 100, 7, 100)};
+  algorithm algo{gaco(
+        100,//gen
+        63,//ker
+        1,//q
+        0,//oracle
+        0.01,//acc
+        100,//convergence speed threshold
+        7,//n gen mark
+        100,//impstop
+        100000,//evalstop
+        0,//focus
+        true //memory
+    )};
   pagmo::ring ring_udt{};
   pagmo::topology topo{ring_udt};
   archipelago archi(topo, 32u, algo, pjc, 6000u);
   // std::cout << archi;
-  int n_evolves = 3; // Increase this to 10 to get the last 0.1%
+  int n_evolves = 8; // Increase this to 10 to get the last 0.1%
   for (int evolve = 0; evolve < n_evolves; evolve++) {
     archi.evolve(1);
     archi.wait_check();
