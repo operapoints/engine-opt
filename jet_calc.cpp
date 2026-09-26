@@ -241,17 +241,17 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double con_max_mass = m_total - 27.2;
 
 
-        //Calculate objective
+        //Calculate objective and normalize
         double Isp = (F/(m_dot*f*g));
         vector_double ret = {-(35*(std::min(F/355.86,1.25))+25*std::min(1.50/(3600/Isp),1.25)+10*std::min(F/(g*m_total*10),1.25)), 
-            con_beta_Ci_tip, 
-            con_beta_Co, 
-            con_beta_NGV, 
-            con_beta_Tim, 
-            con_beta_Tom, 
+            con_beta_Ci_tip/70., 
+            con_beta_Co/70., 
+            con_beta_NGV/70., 
+            con_beta_Tim/70., 
+            con_beta_Tom/70., 
             con_cordier_compressor, 
-            con_Diff_C, 
-            con_DoR, 
+            con_Diff_C/0.55, 
+            con_DoR/0.4, 
             con_M_Ci_tip, 
             con_M_Co_ROT, 
             con_M_Co_STAT, 
@@ -260,16 +260,16 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
             con_M_Tom, 
             con_phi_T, 
             con_psi_T, 
-            con_T_width, // con_turbine_diffusion, 
-            con_turbine_outlet_width,
-            con_R_Toh,
-            con_sigma_max_Ci,
-            con_sigma_max_Co,
-            con_sigma_max_Ti,
-            con_sigma_max_To,
-            con_F,
-            con_max_F,
-            con_max_mass
+            con_T_width/0.01, // con_turbine_diffusion, 
+            con_turbine_outlet_width/0.01,
+            con_R_Toh/0.005,
+            con_sigma_max_Ci/1.0e9,
+            con_sigma_max_Co/1.0e9,
+            con_sigma_max_Ti/1.0e9,
+            con_sigma_max_To/1.0e9,
+            con_F/500.,
+            con_max_F/500.,
+            con_max_mass/30.
             };
         // A physically impossible engine will usually result in a bunch of NaNs,
         // and bad inputs might give Inf due to division by zero.

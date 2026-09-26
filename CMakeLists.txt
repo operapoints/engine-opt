@@ -7,6 +7,9 @@ set(CMAKE_CXX_FLAGS_DEBUG " -g -O0")
 # string(APPEND CMAKE_CXX_FLAGS_RELEASE " -O3 -DNDEBUG")
 #list(APPEND CMAKE_PREFIX_PATH "./pagmo2")
 find_package(Pagmo REQUIRED)
+if(Pagmo_FOUND)
+    message(STATUS "Found pagmo at ${Pagmo_DIR}")
+endif()
 
 find_package(Boost REQUIRED)
 
