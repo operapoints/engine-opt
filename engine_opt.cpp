@@ -68,7 +68,7 @@ int main() {
         100,//gen
         63,//ker
         1,//q
-        0,//oracle
+        100,//oracle
         0.01,//acc
         100,//convergence speed threshold
         7,//n gen mark

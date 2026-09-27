@@ -25,12 +25,12 @@ struct problem_jet_calc{
         static constexpr double Ts_0 = 298.;
         static constexpr double Ps_0 = 101325.;
         static constexpr double Ps_6 = Ps_0;
-        static constexpr double u_0 = 0.;
+        static constexpr double u_0 = 140.;
 
         static constexpr double h_ker = 43e+6;
 
-        static constexpr double eta_C = 0.75;
-        static constexpr double eta_T = 0.75;
+        static constexpr double eta_C = 0.85;
+        static constexpr double eta_T = 0.85;
 
         static constexpr double sigma_C = 1.6;
 
@@ -57,7 +57,7 @@ struct problem_jet_calc{
                         double gam,
                         double A) const;
         bool invalid_ret(vector_double& x) const;
-        bool is_cordier(double sigma, double delta) const;
+        double is_cordier(double sigma, double delta) const;
         double cordier(double sigma) const;
         std::vector<double> compute_contour_val(double T_4, double OPR, double spec_speed_C=0.4) const;
 };

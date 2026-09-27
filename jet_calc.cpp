@@ -13,7 +13,7 @@ vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return 26;
+    return 25;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
@@ -78,9 +78,9 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double spec_speed_C = std::pow(phi_C,0.5)/std::pow(psi_C,0.75);
         double spec_dia_C = std::pow(psi_C,0.25)/std::pow(phi_C,0.5);
         // The expression for the cordier line is based on the compressor cordier line at https://manual.cfturbo.com/en/index.html?cordier.html
-        double con_cordier_compressor = is_cordier(spec_speed_C, spec_dia_C)?-1:1;// The compressor must be in range of the Cordier line
+        double con_cordier_compressor = is_cordier(spec_speed_C, spec_dia_C);// The compressor must be in range of the Cordier line
         double M_Ci_tip = std::pow((u_i*u_i + omega*omega*R_Cit*R_Cit)/(gam_c*R*Ts_2),0.5);
-        double con_M_Ci_tip = M_Ci_tip - 0.8;// Mach at compressor inlet less than 0.8
+        double con_M_Ci_tip = M_Ci_tip - 1.2;// Mach at compressor inlet less than 0.8
         double beta_Ci_tip = (180/M_PI)*std::atan((omega*R_Cit)/u_i);
         double con_beta_Ci_tip = beta_Ci_tip - 70;// Inlet blade angle less than 70 degrees
         double u_Coth_STAT = (C_pc*D_T_C)/(omega*R_Com);
@@ -180,7 +180,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double con_turbine_outlet_width = 0.009 - A_To/(2*M_PI*R_Tom); // Turbine outlet width more than 9mm
         double R_Tot = R_Tom + A_To/(4*M_PI*R_Tom);
         double M_Tom = std::pow((u_Toa*u_Toa + omega*omega*R_Tom*R_Tom)/(gam_h*R*Ts_To),0.5);
-        double con_M_Tom = M_Tom - 0.8; // Relative Mach at turbine exit less than 0.8
+        double con_M_Tom = M_Tom - 0.9; // Relative Mach at turbine exit less than 0.8
         double M_Toa = u_Toa / std::pow((gam_h*R*Ts_To),0.5);
         // TODO: Change this back when done
         double sigma_max_Ti = 0.5*omega*omega*rho_T*(R_Tit*R_Tit - R_Tih*R_Tih);
@@ -220,8 +220,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double R_6 = std::pow((m_dot*(1+f))/(u_6*(Ps_0/(R*Ts_6)))/M_PI,0.5);
         #endif
         double F = m_dot*((1+f)*u_6 - u_0);
-        double con_F = 444.8-F; // Thrust at least 100lbf
-        double con_max_F = F-667.3;
+        double con_F = 445-F; // Thrust at least 100lbf
         // Mass model
         double m_Compressor = std::abs((M_PI*(R_Cih*R_Cih*R_Cih - R_Coh*R_Coh*R_Coh)))*(rho_C/3);
         double m_Turbine = std::abs((M_PI*(R_Tih*R_Tih*R_Tih - R_Toh*R_Toh*R_Toh)))*(rho_T/3);
@@ -241,17 +240,19 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double m_total = 1.12*(m_Compressor + m_Turbine+
                         m_Diffuser + m_NGV + m_Duct+
                         m_Nozzle+m_Shaft+m_Wall+m_Combustor);
-        double con_max_mass = m_total - 27.2;
 
 
         //Calculate objective and normalize
         double Isp = (F/(m_dot*f*g));
-        vector_double ret = {-Isp,//-(35*(std::min(F/355.86,1.25))+25*std::min(1.50/(3600/Isp),1.25)+10*std::min(F/(g*m_total*10),1.25)), 
-            con_beta_Ci_tip/70., 
-            con_beta_Co/70., 
-            con_beta_NGV/70., 
-            con_beta_Tim/70., 
-            con_beta_Tom/70., 
+        double con_min_Isp = 2870. - Isp;
+
+        
+        vector_double ret = {m_total,//-(35*(std::min(F/355.86,1.25))+25*std::min(1.50/(3600/Isp),1.25)+10*std::min(F/(g*m_total*10),1.25)), 
+            0*con_beta_Ci_tip/70., 
+            0*con_beta_Co/70., 
+            0*con_beta_NGV/70., 
+            0*con_beta_Tim/70., 
+            0*con_beta_Tom/70., 
             con_cordier_compressor, 
             con_Diff_C/0.55, 
             con_DoR/0.4, 
@@ -271,8 +272,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
             con_sigma_max_Ti/1.0e9,
             con_sigma_max_To/1.0e9,
             con_F/500.,
-            con_max_F/500.,
-            con_max_mass/30.
+            con_min_Isp/3000.
             };
         // A physically impossible engine will usually result in a bunch of NaNs,
         // and bad inputs might give Inf due to division by zero.
@@ -288,10 +288,10 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
     }
 }
 // Calculates if a specific speed and specific work lie on the Cordier line
-bool problem_jet_calc::is_cordier(double sigma, double delta) const{
+double problem_jet_calc::is_cordier(double sigma, double delta) const{
     double ideal_delta{};
-    double min_delta{};
-    double max_delta{};
+    double min{};
+    double max{};
 
     if(sigma<0.05 || sigma>2.5){
         return false;
@@ -305,9 +305,10 @@ bool problem_jet_calc::is_cordier(double sigma, double delta) const{
     if(sigma>=0.8 && sigma < 2.5){
         ideal_delta = 1.61299*std::pow(sigma, -0.23543);
     }
-    min_delta = 0.9 * ideal_delta;
-    max_delta = 1.1 * ideal_delta;
-    return (delta <= max_delta && delta >= min_delta);
+    min = 0.9 * ideal_delta;
+    max = 1.1 * ideal_delta;
+
+    return 4*((delta-min)*(delta-max))/(std::pow(max-min,2));
 }
 
 double problem_jet_calc::cordier(double sigma) const{
