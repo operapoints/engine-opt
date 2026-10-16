@@ -1,29 +1,30 @@
 #include "LORd.hpp"
 
-Eigen::Matrix<double,16,16> LORd_model::make_H0(LORd_model_params_t params){
-    Eigen::Matrix<double, 16, 16> H0 = Eigen::Matrix<double, 16, 16>::Zero();
-
-    double EC = params.EC;      // Compressor shaft Young's modulus
-    double ET = params.ET;      // Turbine shaft Young's modulus
-    double IC = params.IC;      // Compressor shaft MoI
-    double IT = params.IT;      // Turbine shaft MoI
-    double JdC = params.JdC;    // Compressor diametral moment
-    double JdS = params.JdS;    // Center shaft diametral moment
-    double JdT = params.JdT;    // Turbine diametral moment
-    double JpC = params.JpC;    // Compressor polar moment
-    double JpS = params.JpS;    // Center shaft polar moment
-    double JpT = params.JpT;    // Turbine polar moment
-    double KbyC = params.KbyC;  // Compressor end bearing y axis stiffness
-    double KbyT = params.KbyT;  // Turbine end bearing y axis stiffness
-    double KbzC = params.KbzC;  // Compressor end bearing z axis stiffness
-    double KbzT = params.KbzT;  // Turbine end bearing z axis stiffness
-    double LC = params.LC;      // Compressor overhang length
-    double LS = params.LS;      // Center shaft length
-    double LT = params.LT;      // Turbine overhang length
-    double mC = params.mC;      // Compressor mass
-    double mS = params.mS;      // Center shaft mass
-    double mT = params.mT;      // Turbine mass
-    double Omega = params.Omega;// Shaft speed, positive means CW looking at the compressor
+void LORd_model::make_H0(const LORd_model_params_t params){
+    auto& H0 = this->H0;
+    // Local copies allow register hits interleaved with L1 writes
+    // Restrict condition is trivially true
+    const double EC = params.EC;       // Compressor shaft Young's modulus
+    const double ET = params.ET;       // Turbine shaft Young's modulus
+    const double IC = params.IC;       // Compressor shaft MoI
+    const double IT = params.IT;       // Turbine shaft MoI
+    const double JdC = params.JdC;     // Compressor diametral moment
+    const double JdS = params.JdS;     // Center shaft diametral moment
+    const double JdT = params.JdT;     // Turbine diametral moment
+    const double JpC = params.JpC;     // Compressor polar moment
+    const double JpS = params.JpS;     // Center shaft polar moment
+    const double JpT = params.JpT;     // Turbine polar moment
+    const double KbyC = params.KbyC;   // Compressor end bearing y axis stiffness
+    const double KbyT = params.KbyT;   // Turbine end bearing y axis stiffness
+    const double KbzC = params.KbzC;   // Compressor end bearing z axis stiffness
+    const double KbzT = params.KbzT;   // Turbine end bearing z axis stiffness
+    const double LC = params.LC;       // Compressor overhang length
+    const double LS = params.LS;       // Center shaft length
+    const double LT = params.LT;       // Turbine overhang length
+    const double mC = params.mC;       // Compressor mass
+    const double mS = params.mS;       // Center shaft mass
+    const double mT = params.mT;       // Turbine mass
+    const double Omega = params.Omega; // Shaft speed, positive means CW looking at the compressor
 
 
     const double uc = LC/LS;
@@ -173,6 +174,4 @@ Eigen::Matrix<double,16,16> LORd_model::make_H0(LORd_model_params_t params){
     H0(15, 13) = dt*ut;
     H0(15, 14) = -1.*dt*rt3;
     H0(15, 15) = 3.*dt + mT;
-
-    return H0;
 }

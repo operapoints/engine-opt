@@ -32,9 +32,11 @@ struct LORd_model_params_t{
 class LORd_model{
 public:
     // Returns mode frequencies
+    LORd_model();
     std::vector<double> mode_frequencies(LORd_model_params_t params);
 //private:
+    Eigen::Matrix<double, 16, 16> H0;
     // Assembles the Hessian of the Lagrangian about equilibrium
-    // Takes <40 ns
-    Eigen::Matrix<double,16,16> make_H0(LORd_model_params_t params);
+    // Takes about 20 ns
+    void make_H0(const LORd_model_params_t params);
 };
