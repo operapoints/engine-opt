@@ -2,6 +2,7 @@
 #include <chrono>
 #include <cmath>
 #include <iostream>
+#include <string>
 #include <vector>
 
 #include "LORd.hpp"
@@ -28,50 +29,60 @@ int main(){
     constexpr double rpm_max  = 200000.0;
     constexpr int    n_points = 401;                  // 500 rpm steps
     constexpr double pi = 3.14159265358979323846;
-    constexpr double rpm_to_rad_s = 2.0 * pi / 60.0;
+    constexpr double rpm_to_rad_s  = 2.0 * pi / 60.0;
     constexpr double rad_s_to_krpm = 60.0 / (2.0 * pi) / 1000.0;
+    constexpr int    n_eig = 16;                      // mode_eigvals returns a fixed 16x1
 
     using clock = std::chrono::steady_clock;
 
-    // Warm-up so caches and branch predictors are primed
-    params.Omega = rpm_min * rpm_to_rad_s;
-    auto warm = model.mode_eigvals(params);
-    const int n_eig = static_cast<int>(warm.size());
-
-    // Preallocate storage so no allocation happens inside the timed region
     std::vector<double> rpm_grid(n_points);
-    std::vector<double> imag_store(static_cast<size_t>(n_points) * n_eig);
-
-    // ---------------- Timed sweep ----------------
-    auto t0 = clock::now();
     for (int i = 0; i < n_points; ++i) {
-        const double rpm = rpm_min + (rpm_max - rpm_min) * i / (n_points - 1);
-        rpm_grid[i] = rpm;
-        params.Omega = rpm * rpm_to_rad_s;
-
-        auto lambda = model.mode_eigvals(params);
-        for (int k = 0; k < n_eig; ++k) {
-            imag_store[static_cast<size_t>(i) * n_eig + k] = lambda(k).imag();
-        }
+        rpm_grid[i] = rpm_min + (rpm_max - rpm_min) * i / (n_points - 1);
     }
-    auto t1 = clock::now();
 
-    const double total_us = std::chrono::duration<double, std::micro>(t1 - t0).count();
-    std::cout << "Evaluated " << n_points << " omega values (" << n_eig
-              << " eigenvalues each) in " << total_us / 1e3 << " ms\n"
-              << "  -> " << total_us / n_points << " us per omega value\n";
+    // ---------------- Sweep helper ----------------
+    // Runs the full speed sweep for one model variant, times it, and returns
+    // scatter data (x = shaft speed [krpm], y = |Im(lambda)| [krpm]).
+    struct SweepResult { std::vector<double> x, y; };
 
-    // ---------------- Build scatter data (krpm on both axes) ----------------
-    std::vector<double> x, y;
-    x.reserve(imag_store.size());
-    y.reserve(imag_store.size());
-    for (int i = 0; i < n_points; ++i) {
-        for (int k = 0; k < n_eig; ++k) {
-            const double f_krpm = std::abs(imag_store[static_cast<size_t>(i) * n_eig + k]) * rad_s_to_krpm;
-            x.push_back(rpm_grid[i] / 1000.0);  // shaft speed [krpm]
-            y.push_back(f_krpm);                // mode frequency [krpm]
+    auto run_sweep = [&](bool stiff_shaft, const std::string& name) {
+        // Warm-up so caches and branch predictors are primed
+        params.Omega = rpm_min * rpm_to_rad_s;
+        model.mode_eigvals(params, stiff_shaft);
+
+        // Preallocate so no allocation happens inside the timed region
+        std::vector<double> imag_store(static_cast<size_t>(n_points) * n_eig);
+
+        auto t0 = clock::now();
+        for (int i = 0; i < n_points; ++i) {
+            params.Omega = rpm_grid[i] * rpm_to_rad_s;
+            auto lambda = model.mode_eigvals(params, stiff_shaft);
+            for (int k = 0; k < n_eig; ++k) {
+                imag_store[static_cast<size_t>(i) * n_eig + k] = lambda(k).imag();
+            }
         }
-    }
+        auto t1 = clock::now();
+
+        const double total_us = std::chrono::duration<double, std::micro>(t1 - t0).count();
+        std::cout << name << ": evaluated " << n_points << " omega values ("
+                  << n_eig << " eigenvalues each) in " << total_us / 1e3 << " ms\n"
+                  << "  -> " << total_us / n_points << " us per omega value\n";
+
+        SweepResult r;
+        r.x.reserve(imag_store.size());
+        r.y.reserve(imag_store.size());
+        for (int i = 0; i < n_points; ++i) {
+            for (int k = 0; k < n_eig; ++k) {
+                r.x.push_back(rpm_grid[i] / 1000.0);
+                r.y.push_back(std::abs(imag_store[static_cast<size_t>(i) * n_eig + k]) * rad_s_to_krpm);
+            }
+        }
+        return r;
+    };
+
+    // ---------------- Run both variants ----------------
+    SweepResult stiff = run_sweep(true,  "Stiff shaft    ");
+    SweepResult flex  = run_sweep(false, "Non-stiff shaft");
 
     // 1X synchronous excitation line: frequency = shaft speed (y = x in krpm)
     std::vector<double> sync_x{rpm_min / 1000.0, rpm_max / 1000.0};
@@ -79,11 +90,14 @@ int main(){
 
     // ---------------- Plot ----------------
     plt::figure_size(1000, 700);
-    plt::scatter(x, y, 4.0, {{"c", "tab:blue"}});
-    plt::plot(sync_x, sync_y, {{"color", "red"}, {"linestyle", "--"}, {"label", "1X"}});
+    // Non-stiff drawn first (red, slightly larger) so the black stiff points stay visible on top
+    plt::scatter(flex.x,  flex.y,  6.0, {{"c", "red"},   {"label", "Non-stiff shaft"}});
+    plt::scatter(stiff.x, stiff.y, 3.0, {{"c", "black"}, {"label", "Stiff shaft"}});
+    // 1X line changed to gray so it doesn't clash with the red data
+    plt::plot(sync_x, sync_y, {{"color", "gray"}, {"linestyle", "--"}, {"label", "1X"}});
     plt::xlabel("Shaft speed [krpm]");
     plt::ylabel("Mode frequency [krpm]");
-    plt::title("Campbell diagram");
+    plt::title("Campbell diagram: stiff vs. non-stiff shaft");
     plt::grid(true);
     plt::legend();
     plt::save("campbell.png");

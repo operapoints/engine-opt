@@ -1,8 +1,12 @@
 #include "LORd.hpp"
 #include <Eigen/Dense>
 
-Eigen::Matrix<std::complex<double>,16,1> LORd_model::mode_eigvals(LORd_model_params_t params){
-    this->make_H0(params);// Construct the system Hessian and write to this->H0
+Eigen::Matrix<std::complex<double>,16,1> LORd_model::mode_eigvals(LORd_model_params_t params, bool stiff_shaft){
+    if (stiff_shaft){
+        this->make_H0(params);// Construct the system Hessian and write to this->H0
+    }else{
+        this->make_ASTRA_H0(params);
+    }
     auto& H0 = this->H0;
     Eigen::Matrix<double,16,16> A = Eigen::Matrix<double,16,16>::Zero();
     const auto Am = H0.block<8,8>(0,0);

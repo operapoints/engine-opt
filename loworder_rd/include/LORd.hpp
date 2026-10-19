@@ -67,7 +67,7 @@ public:
     LORd_model();
     // Solves mode eigenvalues
     // Takes 16250ns
-    Eigen::Matrix<std::complex<double>,16,1>  mode_eigvals(LORd_model_params_t params);
+    Eigen::Matrix<std::complex<double>,16,1>  mode_eigvals(LORd_model_params_t params, bool stiff_shaft = true);
 //private:
     Eigen::Matrix<double, 16, 16> H0;
     // Assembles the Hessian of the Lagrangian about equilibrium
