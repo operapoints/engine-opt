@@ -4,27 +4,52 @@ void LORd_model::make_H0(const LORd_model_params_t params){
     auto& H0 = this->H0;
     // Local copies allow register hits interleaved with L1 writes
     // Restrict condition is trivially true
+
+    constexpr double pi = 3.14159265358979323846;
+
+    // ---------------- Fields copied directly from params ----------------
     const double EC = params.EC;       // Compressor shaft Young's modulus
+    // params.ES is intentionally unused (center shaft Young's modulus)
     const double ET = params.ET;       // Turbine shaft Young's modulus
-    const double IC = params.IC;       // Compressor shaft MoI
-    const double IT = params.IT;       // Turbine shaft MoI
+    const double LC = params.LC;       // Compressor overhang length
+    const double LS = params.LS;       // Center shaft length
+    const double LT = params.LT;       // Turbine overhang length
+    const double mC = params.mC;       // Compressor mass
+    const double mT = params.mT;       // Turbine mass
     const double JdC = params.JdC;     // Compressor diametral moment
-    const double JdS = params.JdS;     // Center shaft diametral moment
     const double JdT = params.JdT;     // Turbine diametral moment
     const double JpC = params.JpC;     // Compressor polar moment
-    const double JpS = params.JpS;     // Center shaft polar moment
     const double JpT = params.JpT;     // Turbine polar moment
     const double KbyC = params.KbyC;   // Compressor end bearing y axis stiffness
     const double KbyT = params.KbyT;   // Turbine end bearing y axis stiffness
     const double KbzC = params.KbzC;   // Compressor end bearing z axis stiffness
     const double KbzT = params.KbzT;   // Turbine end bearing z axis stiffness
-    const double LC = params.LC;       // Compressor overhang length
-    const double LS = params.LS;       // Center shaft length
-    const double LT = params.LT;       // Turbine overhang length
-    const double mC = params.mC;       // Compressor mass
-    const double mS = params.mS;       // Center shaft mass
-    const double mT = params.mT;       // Turbine mass
     const double Omega = params.Omega; // Shaft speed, positive means CW looking at the compressor
+
+    // ---------------- Local geometry copies ----------------
+    const double rC = params.rC;       // Compressor shaft radius
+    const double rS = params.rS;       // Center shaft radius
+    const double rT = params.rT;       // Turbine shaft radius
+    const double rhoS = params.rhoS;   // Center shaft density
+
+    // ---------------- Derived quantities (solid circular cylinder shafts) ----------------
+    // Second moment of area (bending MoI) of a solid circular section:
+    //   I = pi * r^4 / 4
+    const double IC = 0.25 * pi * rC*rC*rC*rC;   // Compressor shaft MoI
+    const double IT = 0.25 * pi * rT*rT*rT*rT;   // Turbine shaft MoI
+
+    // Center shaft mass: density * cross-section area * length
+    //   mS = rhoS * pi * rS^2 * LS
+    const double mS = rhoS * pi * rS*rS * LS;    // Center shaft mass
+
+    // Center shaft polar moment of inertia (mass MoI about spin axis), solid cylinder:
+    //   JpS = (1/2) * mS * rS^2
+    const double JpS = 0.5 * mS * rS*rS;         // Center shaft polar moment
+
+    // Center shaft diametral moment of inertia (about a transverse axis through its
+    // centre of mass), solid cylinder of length LS:
+    //   JdS = mS * (3*rS^2 + LS^2) / 12
+    const double JdS = mS * (3.0*rS*rS + LS*LS) / 12.0; // Center shaft diametral moment
 
 
     const double uc = LC/LS;
