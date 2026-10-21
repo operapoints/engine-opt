@@ -13,7 +13,7 @@ vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return 25;
+    return 26;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
@@ -108,6 +108,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double sigma_max_Ci = 0.5*omega*omega*rho_C*(R_Cit*R_Cit - R_Cih*R_Cih);
         double con_sigma_max_Ci = FOS_C * sigma_max_Ci - sigma_max_C;// FOS at compressor inlet blade root
         double R_Coh = R_Com - (A_Co/(4*M_PI*R_Com));
+        double con_R_Coh = -1*R_Coh;
         double R_Cot = R_Com + (A_Co/(4*M_PI*R_Com));
         double sigma_max_Co = 0.5*omega*omega*rho_C*(R_Cot*R_Cot - R_Coh*R_Coh);
         double con_sigma_max_Co = FOS_C * sigma_max_Co - sigma_max_C;// FOS at compressor outlet blade root
@@ -117,7 +118,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
 
         double R_Co_x = R_Com + 0.003;
         double u_Coth_x_STAT = u_Coth_STAT * (R_Com/R_Co_x);
-        double u_Coth_x_ROT = u_Coth_STAT - omega*R_Co_x;
+        double u_Coth_x_ROT = u_Coth_x_STAT - omega*R_Co_x;
         double u_Coa_x = compute_u_a(m_dot,(P_3/(R*T_3)), T_3, u_Coth_x_STAT, gam_c, A_Co);
         double beta_Co_x = (180/M_PI)*std::atan(-u_Coth_x_ROT/u_Coa_x);
         double beta_Di_x = (180/M_PI)*std::atan(u_Coth_x_STAT / u_Coa_x);
@@ -134,7 +135,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double A_Ti = M_PI*(R_Tit*R_Tit - R_Tih*R_Tih);
         double R_Tim = 0.5*(R_Tit+R_Tih);
         double u_Tith_STAT = (C_ph*(-1*D_T_T))/(omega*R_Tim);// Since D_T_T is negative, it has to be flipped to calculate the absolute NGV exit u_th
-        double u_Tia = compute_u_a(m_dot*(1+f),P_3/(R*T_4), T_4, u_Tith_STAT, gam_h, A_Ti);
+        double u_Tia = compute_u_a(m_dot*(1+f),P_4/(R*T_4), T_4, u_Tith_STAT, gam_h, A_Ti);
         if(std::isnan(u_Tia)){
             vector_double ret(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
             return ret;
@@ -144,8 +145,11 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         // Phi and psi follow the definitions in Dixon and Hall
         // It is calculated with reference to the turbine tip inlet speed. This is apparently the 
         // standard but might apply only to axial turbines where blade speed doesn't vary much axially
-        double phi_T = u_Tia / (omega*R_Tit);
-        double psi_T = (C_ph*(-D_T_T)) / (omega*omega*R_Tom*R_Tom);//D_T_T is flipped here also to follow work coefficient convention
+        double R_T_mean = 0.5*(R_Tim+R_Tom); // NOTE: this is an arbitrarily selected "mean" radius to
+        // match the turbine phi and psi estimation to existing empirical efficiency data assuming a constant
+        // meanline radius. Variable radius may cause the map from phi and psi to efficiency to change.
+        double phi_T = u_Tia / (omega*R_T_mean);
+        double psi_T = (C_ph*(-D_T_T)) / (omega*omega*R_T_mean*R_T_mean);//D_T_T is flipped here also to follow work coefficient convention
         // Phi and psi constraints are for the smith chart for axial gas turbines in dixon and hall.
         // Smith believed that the losses were proportional to the average kinetic energy in the row,
         // and correlated this with empirically measured losses.
@@ -157,9 +161,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double u_Ti_STAT = std::pow(u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia,0.5);
         double D_Ts_NGV = -1*(u_Ti_STAT*u_Ti_STAT) / (2*C_ph);
         double Ts_Ti = T_4 + D_Ts_NGV;
-        double Ps_Ti = P_3 * std::pow(Ts_Ti/T_4, (gam_h)/(gam_h-1));
-        double DoR = 1 - (D_Ts_NGV/D_T_T);
-        double con_DoR = std::abs(0.4 - DoR) - 0.1; // Degree of reaction of turbine between 0.3 and 0.5
+        double Ps_Ti = P_4 * std::pow(Ts_Ti/T_4, (gam_h)/(gam_h-1));
         double M_NGVo = std::pow((u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia)/(gam_h*R*Ts_Ti),0.5);
         double con_M_NGVo = M_NGVo - 0.8; // Mach in NGV exit less than 0.8
         double u_Tith_ROT = u_Tith_STAT - omega*R_Tim;
@@ -182,6 +184,11 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double M_Tom = std::pow((u_Toa*u_Toa + omega*omega*R_Tom*R_Tom)/(gam_h*R*Ts_To),0.5);
         double con_M_Tom = M_Tom - 0.9; // Relative Mach at turbine exit less than 0.8
         double M_Toa = u_Toa / std::pow((gam_h*R*Ts_To),0.5);
+
+        // Degree of reaction calculation
+        double D_Ts_T = Ts_To - T_4;
+        double DoR = 1 - (D_Ts_NGV/D_Ts_T);
+        double con_DoR = std::abs(0.4 - DoR) - 0.1; // Degree of reaction of turbine between 0.3 and 0.5
         // TODO: Change this back when done
         double sigma_max_Ti = 0.5*omega*omega*rho_T*(R_Tit*R_Tit - R_Tih*R_Tih);
         double con_sigma_max_Ti = FOS_T * sigma_max_Ti - sigma_max_T;// FOS at compressor inlet blade root
@@ -194,7 +201,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
 
         #ifdef EVAL_JET_CALC
         double u_NGVoth_tip = (R_Tim / R_Tit) * u_Tith_STAT;// NGV outlet theta tip
-        double u_NGVoa_tip = compute_u_a(m_dot*(1+f),P_3/(R*T_4), T_4, u_NGVoth_tip, gam_h, A_Ti);
+        double u_NGVoa_tip = compute_u_a(m_dot*(1+f),P_4/(R*T_4), T_4, u_NGVoth_tip, gam_h, A_Ti);
         double beta_NGVot = (180/M_PI)*std::atan(u_NGVoth_tip / u_NGVoa_tip);
         double u_Tith_tip_ROT = u_NGVoth_tip - omega*R_Tit;
         double beta_Tit = (180/M_PI)*std::atan((u_Tith_tip_ROT)/u_NGVoa_tip);
@@ -203,7 +210,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
 
 
         double u_NGVoth_hub = (R_Tim / R_Tih) * u_Tith_STAT;// NGV outlet theta hub
-        double u_NGVoa_hub = compute_u_a(m_dot*(1+f),P_3/(R*T_4), T_4, u_NGVoth_hub, gam_h, A_Ti);
+        double u_NGVoa_hub = compute_u_a(m_dot*(1+f),P_4/(R*T_4), T_4, u_NGVoth_hub, gam_h, A_Ti);
         double beta_NGVoh = (180/M_PI)*std::atan(u_NGVoth_hub / u_NGVoa_hub);
         double u_Tith_hub_ROT = u_NGVoth_hub - omega*R_Tih;
         double beta_Tih = (180/M_PI)*std::atan((u_Tith_hub_ROT)/u_NGVoa_hub);
@@ -252,13 +259,15 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
             0*con_beta_Co/70., 
             0*con_beta_NGV/70., 
             0*con_beta_Tim/70., 
-            0*con_beta_Tom/70., 
+            0*con_beta_Tom/70., // All the beta constraints are zeroed, so that 
+            // designs are not rejected on the basis of high metal angle
             con_cordier_compressor, 
             con_Diff_C/0.55, 
             con_DoR/0.4, 
             con_M_Ci_tip, 
             con_M_Co_ROT, 
             con_M_Co_STAT, 
+            con_R_Coh,
             con_M_NGVo, 
             con_M_Ti, 
             con_M_Tom, 
@@ -294,7 +303,7 @@ double problem_jet_calc::is_cordier(double sigma, double delta) const{
     double max{};
 
     if(sigma<0.05 || sigma>2.5){
-        return false;
+        return 1.;
     }
     if(sigma>=0.05 && sigma < 0.4){
         ideal_delta = 1.1173*std::pow(sigma, -0.963);
@@ -302,7 +311,7 @@ double problem_jet_calc::is_cordier(double sigma, double delta) const{
     if(sigma>=0.4 && sigma < 0.8){
         ideal_delta = 1.46477*std::pow(sigma, -0.66742);
     }
-    if(sigma>=0.8 && sigma < 2.5){
+    if(sigma>=0.8 && sigma <= 2.5){
         ideal_delta = 1.61299*std::pow(sigma, -0.23543);
     }
     min = 0.9 * ideal_delta;
@@ -351,7 +360,7 @@ double problem_jet_calc::compute_u_a(double m_dot,
                                     double A) const{
     // For now, if an evaluation_error ever comes up in optimizer runs, try to find a way to handle this without relying on catching
     // try{
-        double C_p = 287.0 * (gam/(gam-1));
+        double C_p = this->R * (gam/(gam-1));
         // Positive point at which the derivative is zero, the subsonic solution
         // will always be less than this so it is used as the upper bound
         double u_a_max = std::pow(((gam-1)*rho_t*(2*C_p*T_t-(u_th*u_th)))/((1+gam)*rho_t),0.5);
@@ -364,12 +373,15 @@ double problem_jet_calc::compute_u_a(double m_dot,
                                     ((-1+gam)*(-2*C_p*T_t+std::pow(u_a,2)+std::pow(u_th,2)));
             return {u_a_residual,D_u_a_residual};
         };
-        int digits = 8;
+        int digits = 32;
         std::uintmax_t max_iter = 50;
         double u_a = boost::math::tools::newton_raphson_iterate(compute_u_a_residual, 0., 0.0001, u_a_max, digits, max_iter);
         // Error checking that 1. u_a is in fact a root and 2. u_a is not inf or nan
-        if (std::abs(std::get<0>(compute_u_a_residual(u_a))-0)>1e-6 || std::isnan(u_a) || std::isinf(u_a)){
-            return static_cast<double>(NAN);
+        const double residual = std::get<0>(compute_u_a_residual(u_a));
+
+        if (!std::isfinite(u_a) || !std::isfinite(residual)
+            || std::abs(residual) > 1e-6) {
+            return std::numeric_limits<double>::quiet_NaN();
         }
         return u_a;
     // }catch(boost::math::evaluation_error){

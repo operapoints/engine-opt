@@ -1,5 +1,4 @@
 #pragma once
-#include <vector>
 #include <Eigen/Dense>
 
 //Defines everything the lord model needs to calculate rotordynamic modes
@@ -37,29 +36,6 @@ struct LORd_model_params_t{
     double Omega; // Shaft speed, positive means CW looking at the compressor
 };
 
-struct ASTRA_LORd_model_params_t{
-    double EC; 
-    double ES; 
-    double ET; 
-    double rC; 
-    double rS; 
-    double rT; 
-    double LC; 
-    double LS; 
-    double LT; 
-    double rhoS;
-    double mC; 
-    double mT; 
-    double JdC;
-    double JdT;
-    double JpC;
-    double JpT;
-    double KbyC;
-    double KbyT;
-    double KbzC;
-    double KbzT;
-    double Omega;
-};
 
 class LORd_model{
 public:
@@ -67,7 +43,10 @@ public:
     LORd_model();
     // Solves mode eigenvalues
     // Takes 16250ns
-    Eigen::Matrix<std::complex<double>,16,1>  mode_eigvals(LORd_model_params_t params, bool stiff_shaft = true);
+    Eigen::Matrix<std::complex<double>,16,1>  mode_eigvals(
+        LORd_model_params_t params,
+         bool stiff_shaft = true
+        );
 //private:
     Eigen::Matrix<double, 16, 16> H0;
     // Assembles the Hessian of the Lagrangian about equilibrium

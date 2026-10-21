@@ -17,7 +17,7 @@ Eigen::Matrix<std::complex<double>,16,1> LORd_model::mode_eigvals(LORd_model_par
     Eigen::LLT<Eigen::Matrix<double,8,8>> M_factor(Dm);
     A.block<8,8>(8,0) = M_factor.solve(Am);
     A.block<8,8>(8,8) = M_factor.solve(Bm-Cm);
-    Eigen::EigenSolver<Eigen::Matrix<double,16,16>> solver(A);
+    Eigen::EigenSolver<Eigen::Matrix<double,16,16>> solver(A, false);
     Eigen::Matrix<std::complex<double>,16,1> lambda = solver.eigenvalues();
     return lambda;
 }

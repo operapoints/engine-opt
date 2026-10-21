@@ -56,8 +56,20 @@ int main(){
     double ns = std::chrono::duration<double, std::nano>(t1 - t0).count() / N;
 
     std::cout << model.H0 << "\n";
-    std::cout << "make_H0: " << ns << " ns per call (avg over " << N << " calls)\n";
+    std::cout << "mode_eigvals: " << ns << " ns per call (avg over " << N << " calls)\n";
     std::cout << "Eigenvalues: \n";
     std::cout << lambda;
     return 0;
+
+
+    // // Usage
+    // // Instantiate rd model (done only once)
+    // LORd_model model;
+    // // Optimization loop{
+    //     // Package relevant parameters in struct
+    //     LORd_model_params_t params{...};
+    //     // Solve system eigenvalues
+    //     auto lambda = model.mode_eigvals(params);
+    // // }
+
 }
