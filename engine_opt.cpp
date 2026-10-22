@@ -8,6 +8,7 @@
 #include <pagmo/population.hpp>
 #include <pagmo/problem.hpp>
 #include <pagmo/topologies/ring.hpp>
+#include <pagmo/topologies/fully_connected.hpp>
 #include <pagmo/topology.hpp>
 #include <pagmo/algorithms/nlopt.hpp>
 #include <numeric>
@@ -66,7 +67,7 @@ int main() {
   std::cout << pjc;
   algorithm algo{gaco(
         100,//gen
-        63,//ker
+        31,//ker
         1,//q
         100,//oracle
         0.01,//acc
@@ -77,8 +78,8 @@ int main() {
         0,//focus
         true //memory
     )};
-  pagmo::ring ring_udt{};
-  pagmo::topology topo{ring_udt};
+  pagmo::fully_connected fc_udt{};
+  pagmo::topology topo{fc_udt};
   archipelago archi(topo, 32u, algo, pjc, 6000u);
   // std::cout << archi;
   int n_evolves = 8; // Increase this to 10 to get the last 0.1%
@@ -106,7 +107,6 @@ int main() {
     nl->set_ftol_rel(1e-10);
     nl->set_xtol_abs(1e-12);
     local_algo.set_verbosity(0);
-    local_algo.extract<nlopt>()->set_maxeval(200); // tune budget as needed
 
     auto champions_x = archi.get_champions_x();
     auto champions_f = archi.get_champions_f();
@@ -115,12 +115,28 @@ int main() {
     std::vector<pagmo::vector_double> refined_f;
 
     for (std::size_t i = 0; i < champions_x.size(); ++i) {
-    // seed a 1-individual population at the champion and polish locally
     population pop(pjc, 0);
     pop.push_back(champions_x[i]);
-    pop = local_algo.evolve(pop);
+    double prev = pop.champion_f()[0];
+    for (int pass = 0; pass < 20; ++pass) {
+        pop = local_algo.evolve(pop);
+        double cur = pop.champion_f()[0];
+        if (std::abs(prev - cur) < 1e-8 * std::abs(prev)) break;
+        prev = cur;
+    }
     refined_x.push_back(pop.champion_x());
     refined_f.push_back(pop.champion_f());
+}
+
+    // Keep refined_x normalized for further fitness() evaluations.
+    // Store a separate copy in SI units for printing and physical calculations.
+    auto physical_x = refined_x;
+    for (auto& x : physical_x) {
+        for (std::size_t j = 0; j < problem_jet_calc::design_size; ++j) {
+            x[j] = problem_jet_calc::physical_lower[j]
+                + x[j] * (problem_jet_calc::physical_upper[j]
+                          - problem_jet_calc::physical_lower[j]);
+        }
     }
 
     // ----- Rank refined champions and print the top k -----
@@ -140,14 +156,15 @@ int main() {
 
     for (int rank = 0; rank < k; ++rank) {
     std::size_t i = idx[rank];
-    const auto& x = refined_x[i];
+    const auto& x = physical_x[i];
     const auto& f = refined_f[i];
-
+    std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+    std::cout << "No. refined champions: " << refined_f.size() <<'\n';
     std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
     std::cout << "Rank " << rank + 1 << ":\n";
     std::cout << "Score: " << f[0] << "\n";
 
-    std::cout << "Design vector: \n{\n";
+    std::cout << "Design vector (SI units): \n{\n";
     for (std::size_t j = 0; j < x.size(); ++j) {
         std::cout << "  "<< j+1<< ": " << x[j];
         if (j + 1 < x.size()) std::cout << ",";

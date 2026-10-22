@@ -15,6 +15,17 @@ struct problem_jet_calc{
     public:
         // Non-varying parameters
         // Define things like environment parameters and compenent efficiencies here
+        // Physical bounds in design-vector order. Optimizer coordinates are in [0, 1]:
+        // physical[i] = lower[i] + normalized[i] * (upper[i] - lower[i]).
+        static constexpr double physical_lower[] = {
+            0, 0, 600, 0.015, 0.015, 0.0001, 0, 0, 0.015, 0.015, 0.0001, 0.015
+        };
+        static constexpr double physical_upper[] = {
+            20000, 300, 1100, 0.08, 0.08, 0.05, 0.2, 300, 0.2, 0.2, 0.05, 0.2
+        };
+        static constexpr std::size_t design_size = sizeof(physical_lower) / sizeof(physical_lower[0]);
+        static_assert(sizeof(physical_upper) == sizeof(physical_lower), "Physical bounds must match");
+
         static constexpr double g = 9.8066;
         static constexpr const double R = 287.0;
         static constexpr double gam_c = 1.4;

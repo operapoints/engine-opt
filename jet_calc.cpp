@@ -5,51 +5,46 @@
 #include <initializer_list>
 #include <utility>
 #include <sstream>
+#include <stdexcept>
 
 
 using namespace pagmo;
+
+
 
 vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return 26;
+    return 21;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
-    // auto omega = x[0]; // rad/s - shaft speed
-    // auto u_i = x[1];   // m/s   - compressor inlet velocity
-    // auto T_4 = x[2];   // K     - combustor exit total temp
-    // auto R_Cih = x[3]; // m     - compressor inlet hub radius
-    // auto R_Cit = x[4]; // m     - compressor inlet tip radius
-    // auto A_Co = x[5];  // m^2   - compressor outlet area
-    // auto R_Com = x[6]; // m     - compressor outlet meanline radius
-    // auto D_T_C = x[7]; // K     - compressor total temperature change
-    // auto R_Tih = x[8]; // m     - turbine inlet hub radius
-    // auto R_Tit = x[9]; // m     - Turbine inlet tip radius
-    // auto A_To = x[10]; // m^2   - Turbine outlet area
-    // auto R_Tom = x[11];// m     - Turbine exit meanline radius
-    vector_double lb = {0,0,600,0.015,0.015,0.0001,0,0,0.015,0.015,0.0001,0.015};
-    vector_double ub = {20000,300,1100,0.08,0.08,0.05,0.2,300,0.2,0.2,0.05,0.2};
-    std::pair<vector_double, vector_double> ret(lb,ub);
-    return ret;
+    return {vector_double(design_size, 0.0), vector_double(design_size, 1.0)};
 }
 
 // Calculates the fitness function and associated constraints,
 // in the form {fitness, eq..., ineq...}
+// x contains normalized design variables; all engine calculations use SI units.
 vector_double problem_jet_calc::fitness(const vector_double &x) const{
-    auto omega = x[0]; // rad/s - shaft speed
-    auto u_i = x[1];   // m/s   - compressor inlet velocity
-    auto T_4 = x[2];   // K     - combustor exit total temp
-    auto R_Cih = x[3]; // m     - compressor inlet hub radius
-    auto R_Cit = x[4]; // m     - compressor inlet tip radius
-    auto A_Co = x[5];  // m^2   - compressor outlet area
-    auto R_Com = x[6]; // m     - compressor outlet meanline radius
-    auto D_T_C = x[7]; // K     - compressor total temperature change
-    auto R_Tih = x[8]; // m     - turbine inlet hub radius
-    auto R_Tit = x[9]; // m     - Turbine inlet tip radius
-    auto A_To = x[10]; // m^2   - Turbine outlet area
-    auto R_Tom = x[11];// m     - Turbine exit meanline velocity
+    if (x.size() != design_size) {
+        throw std::invalid_argument("fitness expects 12 normalized design variables");
+    }
+    const auto physical = [&x](std::size_t i) {
+        return physical_lower[i] + x[i] * (physical_upper[i] - physical_lower[i]);
+    };
+    const double omega = physical(0); // rad/s - shaft speed
+    const double u_i = physical(1);   // m/s   - compressor inlet velocity
+    const double T_4 = physical(2);   // K     - combustor exit total temp
+    const double R_Cih = physical(3); // m     - compressor inlet hub radius
+    const double R_Cit = physical(4); // m     - compressor inlet tip radius
+    const double A_Co = physical(5);  // m^2   - compressor outlet area
+    const double R_Com = physical(6); // m     - compressor outlet meanline radius
+    const double D_T_C = physical(7); // K     - compressor total temperature change
+    const double R_Tih = physical(8); // m     - turbine inlet hub radius
+    const double R_Tit = physical(9); // m     - turbine inlet tip radius
+    const double A_To = physical(10);// m^2   - turbine outlet area
+    const double R_Tom = physical(11);// m     - turbine exit meanline radius
     // Variable subscript convention:
     // if u:
     // u_<Component : n><Component axial location : 1><Velocity direction : 1 - 2>_<component radial location : n>
@@ -229,8 +224,12 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double F = m_dot*((1+f)*u_6 - u_0);
         double con_F = 445-F; // Thrust at least 100lbf
         // Mass model
-        double m_Compressor = std::abs((M_PI*(R_Cih*R_Cih*R_Cih - R_Coh*R_Coh*R_Coh)))*(rho_C/3);
-        double m_Turbine = std::abs((M_PI*(R_Tih*R_Tih*R_Tih - R_Toh*R_Toh*R_Toh)))*(rho_T/3);
+        double m_Compressor_conical = std::abs((M_PI*(R_Cih*R_Cih*R_Cih - R_Coh*R_Coh*R_Coh)))*(rho_C/3);
+        double m_Compressor_prismatic = (R_Cot - R_Coh)*M_PI*R_Coh*R_Coh;
+        double m_Compressor = std::max(m_Compressor_conical,m_Compressor_prismatic);
+        double m_Turbine_conical = std::abs((M_PI*(R_Tih*R_Tih*R_Tih - R_Toh*R_Toh*R_Toh)))*(rho_T/3);
+        double m_Turbine_prismatic = (R_Tot - R_Toh)*M_PI*R_Tot*R_Tot;
+        double m_Turbine = std::max(m_Turbine_conical, m_Turbine_prismatic);
         // Diffuser mass proportional to spec speed and component radius squared
         double m_Diffuser = (0.07146/(0.03*0.03))*(R_Com*R_Com)*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4))*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4));
         double m_NGV = (0.2885/(0.0315287*0.0315287))*(R_Tit*R_Tit);
@@ -255,12 +254,12 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
 
         
         vector_double ret = {m_total,//-(35*(std::min(F/355.86,1.25))+25*std::min(1.50/(3600/Isp),1.25)+10*std::min(F/(g*m_total*10),1.25)), 
-            0*con_beta_Ci_tip/70., 
-            0*con_beta_Co/70., 
-            0*con_beta_NGV/70., 
-            0*con_beta_Tim/70., 
-            0*con_beta_Tom/70., // All the beta constraints are zeroed, so that 
-            // designs are not rejected on the basis of high metal angle
+            // 0*con_beta_Ci_tip/70., 
+            // 0*con_beta_Co/70., 
+            // 0*con_beta_NGV/70., 
+            // 0*con_beta_Tim/70., 
+            // 0*con_beta_Tom/70., // All the beta constraints are zeroed, so that 
+            // // designs are not rejected on the basis of high metal angle
             con_cordier_compressor, 
             con_Diff_C/0.55, 
             con_DoR/0.4, 
