@@ -17,6 +17,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <pagmo/utils/constrained.hpp>
 
@@ -375,6 +376,17 @@ int main() {
         }
         std::cout << "}\n";
     }
+    }
+
+    // Re-evaluate the best constrained-ranked design in normalized coordinates.
+    // A non-null results pointer enables the detailed jet-calculation output.
+    std::unordered_map<std::string, double> results;
+    pjc_obj.fitness(refined_x[idx.front()], &results);
+
+    std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+    std::cout << "Further details\n";
+    for (const auto& entry : results) {
+        std::cout << '\t' << entry.first << " : " << entry.second << '\n';
     }
 
     auto end = std::chrono::steady_clock::now();

@@ -5,6 +5,8 @@
 
 #include <pagmo/problem.hpp>
 #include <pagmo/types.hpp>
+#include <unordered_map>
+#include <string>
 
 
 #include <boost/math/tools/roots.hpp>
@@ -58,7 +60,7 @@ struct problem_jet_calc{
         static constexpr double FOS_C = 1.5;
         vector_double::size_type get_nec() const;
         vector_double::size_type get_nic() const;
-        vector_double fitness(const vector_double &x) const;
+        vector_double fitness(const vector_double &x, std::unordered_map<std::string,double> *results_ptr = nullptr) const;
         std::pair<vector_double, vector_double> get_bounds() const;
     // private: 
         double compute_u_a(double m_dot,

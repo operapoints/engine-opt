@@ -26,7 +26,7 @@ std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
 // Calculates the fitness function and associated constraints,
 // in the form {fitness, eq..., ineq...}
 // x contains normalized design variables; all engine calculations use SI units.
-vector_double problem_jet_calc::fitness(const vector_double &x) const{
+vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_map<std::string,double> *results_ptr) const{
     if (x.size() != design_size) {
         throw std::invalid_argument("fitness expects 12 normalized design variables");
     }
@@ -280,6 +280,23 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
             con_F/500.,
             con_min_Isp/3000.
             };
+
+            if(results_ptr != nullptr){
+                (*results_ptr)["[] Compressor specific speed"] = spec_speed_C;
+                (*results_ptr)["[Pa] P_0 (ambient)"] = P_0;
+                (*results_ptr)["[K] T_0 (ambient)"] = T_0;
+                (*results_ptr)["[Pa] P_3 (compressor discharge)"] = P_3;
+                (*results_ptr)["[K] T_3 (compressor discharge)"] = T_3;
+                (*results_ptr)["[Pa] P_4 (combustor discharge)"] = P_4;
+                (*results_ptr)["[K] T_4 (combustor discharge)"] = T_4;
+                (*results_ptr)["[Pa] P_5 (turbine discharge)"] = P_5;
+                (*results_ptr)["[K] T_5 (turbine discharge)"] = T_5;
+                (*results_ptr)["[] M_6 (nozzle outlet)"] = M_6;
+                (*results_ptr)["[] Compressor flow coefficient"] = phi_C;
+                (*results_ptr)["[] Turbine flow coefficient"] = phi_T;
+                (*results_ptr)["[] Compressor work coefficient"] = psi_C;
+                (*results_ptr)["[] Turbine work coefficient"] = psi_T;
+            }
         // A physically impossible engine will usually result in a bunch of NaNs,
         // and bad inputs might give Inf due to division by zero.
         // If this happens, return a big penalty
