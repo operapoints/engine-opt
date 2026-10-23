@@ -158,7 +158,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         double Ts_Ti = T_4 + D_Ts_NGV;
         double Ps_Ti = P_4 * std::pow(Ts_Ti/T_4, (gam_h)/(gam_h-1));
         double M_NGVo = std::pow((u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia)/(gam_h*R*Ts_Ti),0.5);
-        double con_M_NGVo = M_NGVo - 0.8; // Mach in NGV exit less than 0.8
+        double con_M_NGVo = M_NGVo - 0.9; // Mach in NGV exit less than 0.8
         double u_Tith_ROT = u_Tith_STAT - omega*R_Tim;
         double M_Ti = std::pow((u_Tith_ROT*u_Tith_ROT + u_Tia*u_Tia)/(gam_h*R*Ts_Ti),0.5);
         double con_M_Ti = M_Ti - 0.8;// Turbine inlet mach less than 0.8
@@ -251,8 +251,6 @@ vector_double problem_jet_calc::fitness(const vector_double &x) const{
         //Calculate objective and normalize
         double Isp = (F/(m_dot*f*g));
         double con_min_Isp = 2870. - Isp;
-
-        
         vector_double ret = {m_total,//-(35*(std::min(F/355.86,1.25))+25*std::min(1.50/(3600/Isp),1.25)+10*std::min(F/(g*m_total*10),1.25)), 
             // 0*con_beta_Ci_tip/70., 
             // 0*con_beta_Co/70., 

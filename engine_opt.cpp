@@ -57,21 +57,101 @@ void print_fitness_diagnostics(const std::string& label,
               << ", largest inequality residual=" << d.max_inequality << '\n';
 }
 
-const char* nlopt_status_name(int status) {
-    switch (status) {
-        case -1: return "FAILURE";
-        case -2: return "INVALID_ARGS";
-        case -3: return "OUT_OF_MEMORY";
-        case -4: return "ROUNDOFF_LIMITED";
-        case -5: return "FORCED_STOP";
-        case 1: return "SUCCESS";
-        case 2: return "STOPVAL_REACHED";
-        case 3: return "FTOL_REACHED";
-        case 4: return "XTOL_REACHED";
-        case 5: return "MAXEVAL_REACHED";
-        case 6: return "MAXTIME_REACHED";
-        default: return "UNKNOWN";
+// Agreement is measured in objective space among feasible island champions only.
+// It is a convergence proxy, not a certificate of global optimality; migration
+// and shared seeding mean these are not independent statistical samples.
+struct ObjectiveAgreement {
+    std::size_t count = 0;
+    std::size_t near_best = 0;
+    std::size_t top_count = 0;
+    double median = 0.0;
+    double iqr = 0.0;
+    double top_spread_percent = 0.0;
+};
+
+ObjectiveAgreement objective_agreement(std::vector<double> values) {
+    ObjectiveAgreement result;
+    values.erase(std::remove_if(values.begin(), values.end(),
+                                [](double v) { return !std::isfinite(v); }), values.end());
+    if (values.empty()) return result;
+    std::sort(values.begin(), values.end());
+    result.count = values.size();
+    const auto quantile = [&](double fraction) {
+        const double position = fraction * static_cast<double>(values.size() - 1);
+        const auto lo = static_cast<std::size_t>(position);
+        const auto hi = std::min(lo + 1, values.size() - 1);
+        return values[lo] + (position - lo) * (values[hi] - values[lo]);
+    };
+    result.median = quantile(0.5);
+    result.iqr = quantile(0.75) - quantile(0.25);
+    // Relative gaps also work for negative objectives. Near zero, use a small
+    // absolute scale floor to avoid division by zero.
+    const double scale = std::max(std::abs(values.front()), 1e-12);
+    const double near_best_gap = 0.001 * scale; // Within 0.1% of the best.
+    for (double value : values) {
+        if (value - values.front() <= near_best_gap) ++result.near_best;
     }
+    if (values.size() >= 4) {
+        result.top_count = (values.size() + 3) / 4; // Best quarter, rounded up.
+        result.top_spread_percent = 100.0
+            * (values[result.top_count - 1] - values.front()) / scale;
+    }
+    return result;
+}
+
+void print_objective_agreement(const std::vector<pagmo::vector_double>& fitness,
+                               const pagmo::problem& p, std::size_t island_count) {
+    std::vector<double> feasible_objectives;
+    for (std::size_t i = 0; i < std::min(island_count, fitness.size()); ++i) {
+        if (p.feasibility_f(fitness[i])) feasible_objectives.push_back(fitness[i][0]);
+    }
+    const auto a = objective_agreement(std::move(feasible_objectives));
+    std::cout << "  Objective agreement (feasible islands): ";
+    if (a.count == 0) {
+        std::cout << "n/a (none feasible)\n";
+        return;
+    }
+    std::cout << "median=" << a.median << ", IQR=" << a.iqr;
+    if (a.top_count > 0) {
+        std::cout << ", best-quarter spread=" << a.top_spread_percent
+                  << "% (n=" << a.top_count << ')';
+    } else {
+        std::cout << ", best-quarter spread=n/a (fewer than 4 feasible islands)";
+    }
+    std::cout << ", within 0.1% of best=" << a.near_best << '/' << a.count << '\n';
+}
+
+void print_progress_summary(const std::string& label,
+                            const std::vector<pagmo::vector_double>& fitness,
+                            const pagmo::problem& p, std::size_t island_count,
+                            const std::string& extra = "") {
+    if (fitness.empty()) return;
+    const auto order = pagmo::sort_population_con(fitness, p.get_nec(), p.get_c_tol());
+    const auto best = order[0];
+    std::size_t feasible_count = 0;
+    double best_feasible = std::numeric_limits<double>::infinity();
+    double largest_objective = -std::numeric_limits<double>::infinity();
+    for (const auto& f : fitness) {
+        largest_objective = std::max(largest_objective, f[0]);
+        if (p.feasibility_f(f)) {
+            ++feasible_count;
+            best_feasible = std::min(best_feasible, f[0]);
+        }
+    }
+    std::cout << label << " — feasible champions: " << feasible_count << '/' << fitness.size()
+              << ", best feasible objective: ";
+    if (feasible_count > 0) std::cout << best_feasible;
+    else std::cout << "n/a";
+    std::cout << ", largest champion objective: " << largest_objective << extra << '\n';
+    // The extra direct-incumbent polish participates in best-result selection,
+    // but is excluded from the island agreement statistics.
+    std::string best_label = "  Best champion by constrained ranking";
+    if (!extra.empty()) {
+        best_label += best < island_count
+            ? " (island " + std::to_string(best + 1) + ")" : " (supplied incumbent)";
+    }
+    print_fitness_diagnostics(best_label, fitness[best], p);
+    print_objective_agreement(fitness, p, island_count);
 }
 } // namespace
 
@@ -143,42 +223,6 @@ int main() {
       }
   }
   const auto incumbent_f = pjc.fitness(incumbent_x);
-  print_fitness_diagnostics("Supplied incumbent (reevaluated)", incumbent_f, pjc);
-  std::cout << "Incumbent normalized vector:\n";
-  for (std::size_t j = 0; j < incumbent_x.size(); ++j) {
-      std::cout << "  " << j + 1 << ": " << incumbent_x[j] << '\n';
-  }
-  std::cout << "Incumbent constraint residuals and configured tolerances:\n";
-  for (std::size_t j = 0; j < pjc.get_nc(); ++j) {
-      std::cout << "  " << j + 1 << ": " << incumbent_f[pjc.get_nobj() + j]
-                << ", tolerance=" << pjc.get_c_tol()[j] << '\n';
-  }
-  if (!pjc.feasibility_f(incumbent_f)) {
-      std::cout << "NOTE: This rounded saved vector is not feasible when reevaluated. "
-                   "No constraint tolerances have been relaxed.\n";
-  }
-  const double incumbent_r_cot = incumbent_physical[6]
-      + incumbent_physical[5] / (4.0 * std::acos(-1.0) * incumbent_physical[6]);
-  std::cout << "Incumbent geometric R_Cot [m]=" << incumbent_r_cot << '\n';
-
-  // Small feasible descent checks distinguish a true boundary from solver stalls.
-  const auto probe_descent = [&](const std::string& label, const pagmo::vector_double& x) {
-      const auto base_f = pjc.fitness(x);
-      for (const std::size_t j : {std::size_t(5), std::size_t(6)}) {
-          for (const double requested_h : {1e-4, 1e-6, 1e-8}) {
-              if (x[j] <= 0.0) continue;
-              auto trial_x = x;
-              const double h = std::min(requested_h, x[j]);
-              trial_x[j] -= h;
-              const auto trial_f = pjc.fitness(trial_x);
-              std::cout << label << " probe: decrease " << (j == 5 ? "A_Co" : "R_Com")
-                        << ", normalized step=" << h
-                        << ", objective change=" << trial_f[0] - base_f[0] << '\n';
-              print_fitness_diagnostics("  trial", trial_f, pjc);
-          }
-      }
-  };
-  probe_descent("Incumbent", incumbent_x);
   algorithm algo{gaco(
         100,//gen
         31,//ker
@@ -201,28 +245,13 @@ int main() {
       pop.set_xf(pop.worst_idx(), incumbent_x, incumbent_f);
       island.set_population(pop);
   }
-  std::cout << "Seeded all 32 islands with the normalized incumbent.\n";
   int n_evolves = 8; // Increase this to 10 to get the last 0.1%
   for (int evolve = 0; evolve < n_evolves; evolve++) {
     archi.evolve(1);
     archi.wait_check();
     const auto champions_f = archi.get_champions_f();
-    const auto order = pagmo::sort_population_con(champions_f, pjc.get_nec(), pjc.get_c_tol());
-    std::size_t feasible_count = 0;
-    double best_feasible = std::numeric_limits<double>::infinity();
-    double largest_objective = -std::numeric_limits<double>::infinity();
-    for (const auto& f : champions_f) {
-        largest_objective = std::max(largest_objective, f[0]);
-        if (pjc.feasibility_f(f)) {
-            ++feasible_count;
-            best_feasible = std::min(best_feasible, f[0]);
-        }
-    }
-    std::cout << "Round " << evolve + 1 << " / " << n_evolves
-              << " — feasible champions: " << feasible_count << '/' << champions_f.size()
-              << ", best feasible objective: " << best_feasible
-              << ", largest champion objective: " << largest_objective << '\n';
-    print_fitness_diagnostics("  Best champion by constrained ranking", champions_f[order[0]], pjc);
+    print_progress_summary("Round " + std::to_string(evolve + 1) + " / "
+                           + std::to_string(n_evolves), champions_f, pjc, champions_f.size());
   }
 
 
@@ -233,60 +262,67 @@ int main() {
     nl->set_xtol_rel(1e-10);
     nl->set_ftol_rel(1e-10);
     nl->set_xtol_abs(1e-12);
-    local_algo.set_verbosity(100);
+    local_algo.set_verbosity(0);
 
     auto champions_x = archi.get_champions_x();
     // Also polish the supplied incumbent directly, even if global search lost it.
     const std::size_t incumbent_candidate = champions_x.size();
     champions_x.push_back(incumbent_x);
 
-    std::vector<pagmo::vector_double> refined_x;
+    // Advance every candidate by one local pass before reporting the best.
+    // This preserves each candidate's original stopping rule and solver budget.
+    std::vector<population> local_populations;
+    local_populations.reserve(champions_x.size());
+    std::vector<pagmo::vector_double> refined_x = champions_x;
     std::vector<pagmo::vector_double> refined_f;
-
-    std::cout << "Local settings: maxeval=2000 per pass, max passes=20, "
-                 "xtol_rel=1e-10, ftol_rel=1e-10, xtol_abs=1e-12\n";
-    for (std::size_t i = 0; i < champions_x.size(); ++i) {
-        const std::string label = i == incumbent_candidate
-            ? "Supplied incumbent" : "Island " + std::to_string(i + 1);
-        population pop(pjc, 0);
-        pop.push_back(champions_x[i]);
-        print_fitness_diagnostics(label + " before polish", pop.champion_f(), pjc);
-        for (int pass = 0; pass < 20; ++pass) {
-            const auto previous_x = pop.champion_x();
-            const auto previous_f = pop.champion_f();
-            const auto fevals_before = pop.get_problem().get_fevals();
+    refined_f.reserve(champions_x.size());
+    for (const auto& x : champions_x) {
+        local_populations.emplace_back(pjc, 0);
+        local_populations.back().push_back(x);
+        refined_f.push_back(local_populations.back().champion_f());
+    }
+    std::vector<bool> active(champions_x.size(), true);
+    constexpr int max_passes = 20;
+    for (int pass = 0; pass < max_passes; ++pass) {
+        std::size_t attempted = 0;
+        std::size_t errors = 0;
+        std::string first_error;
+        for (std::size_t i = 0; i < local_populations.size(); ++i) {
+            if (!active[i]) continue;
+            ++attempted;
+            auto& pop = local_populations[i];
+            const double previous_objective = pop.champion_f()[0];
             try {
                 pop = local_algo.evolve(pop);
             } catch (const std::exception& e) {
-                std::cout << label << " pass " << pass + 1
-                          << " threw: " << e.what() << "; retaining previous candidate\n";
-                break;
+                ++errors;
+                active[i] = false;
+                if (first_error.empty()) {
+                    const std::string source = i < incumbent_candidate
+                        ? "island " + std::to_string(i + 1) : "supplied incumbent";
+                    first_error = source + ": " + e.what();
+                    std::replace(first_error.begin(), first_error.end(), '\n', ' ');
+                    std::replace(first_error.begin(), first_error.end(), '\r', ' ');
+                }
+                continue; // Retain the previous candidate if polishing fails.
             }
-            const auto current_f = pop.champion_f();
-            double dx_inf = 0.0;
-            for (std::size_t j = 0; j < previous_x.size(); ++j) {
-                dx_inf = std::max(dx_inf, std::abs(pop.champion_x()[j] - previous_x[j]));
-            }
-            // Re-extract from the algorithm that actually ran.
-            const int status = static_cast<int>(local_algo.extract<nlopt>()->get_last_opt_result());
-            const auto fevals = pop.get_problem().get_fevals() - fevals_before;
-            std::cout << label << " pass " << pass + 1
-                      << ": " << nlopt_status_name(status) << " (" << status << ')'
-                      << ", fitness evaluations=" << fevals
-                      << ", objective before=" << previous_f[0]
-                      << ", after=" << current_f[0]
-                      << ", delta=" << current_f[0] - previous_f[0]
-                      << ", max normalized coordinate change=" << dx_inf << '\n';
-            print_fitness_diagnostics("  Retained candidate", current_f, pjc);
-            // Keep the existing outer stopping rule, but make its activation explicit.
-            if (std::abs(previous_f[0] - current_f[0]) < 1e-8 * std::abs(previous_f[0])) {
-                std::cout << "  Outer objective-change stop triggered; "
-                             "this does not certify local optimality.\n";
-                break;
+            refined_x[i] = pop.champion_x();
+            refined_f[i] = pop.champion_f();
+            if (std::abs(previous_objective - refined_f[i][0])
+                < 1e-8 * std::abs(previous_objective)) {
+                active[i] = false;
             }
         }
-        refined_x.push_back(pop.champion_x());
-        refined_f.push_back(pop.champion_f());
+        if (attempted == 0) break;
+        const std::size_t remaining = std::count(active.begin(), active.end(), true);
+        std::string extra = ", polished=" + std::to_string(attempted)
+                          + ", remaining active=" + std::to_string(remaining)
+                          + ", errors=" + std::to_string(errors);
+        if (errors > 0) extra += ", first error=" + first_error;
+        print_progress_summary("Local polish pass " + std::to_string(pass + 1) + " / "
+                               + std::to_string(max_passes), refined_f, pjc,
+                               incumbent_candidate, extra);
+        if (remaining == 0) break;
     }
 
     // Keep refined_x normalized for further fitness() evaluations.
@@ -306,11 +342,6 @@ int main() {
 
     // Feasible candidates first; among feasible candidates, smaller objective wins.
     const auto idx = pagmo::sort_population_con(refined_f, pjc.get_nec(), pjc.get_c_tol());
-    print_fitness_diagnostics("Best retained result", refined_f[idx[0]], pjc);
-    std::cout << "Best retained objective minus supplied incumbent objective: "
-              << refined_f[idx[0]][0] - incumbent_f[0] << '\n';
-    probe_descent("Best retained result", refined_x[idx[0]]);
-
     auto nobj = pjc.get_nobj();
     auto nec  = pjc.get_nec();
     auto nic  = pjc.get_nic();
@@ -325,7 +356,6 @@ int main() {
     std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
     std::cout << "Rank " << rank + 1 << ":\n";
     std::cout << "Source: " << (i == incumbent_candidate ? "Supplied incumbent" : "Island champion") << '\n';
-    print_fitness_diagnostics("Result", f, pjc);
     std::cout << "Score: " << f[0] << "\n";
 
     std::cout << "Design vector (SI units): \n{\n";
