@@ -12,3 +12,4 @@ target_include_directories(rostack PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_executable(rostack_test src/demos/rostack_test.cpp)
 target_link_libraries(rostack_test PRIVATE rostack)
+target_link_libraries(rostack_test PRIVATE Pagmo::pagmo)
