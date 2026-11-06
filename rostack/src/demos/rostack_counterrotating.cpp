@@ -1,10 +1,10 @@
 // Two counterrotating compressor rotors on separate spools, with no stator.
 // Build with the inspection-capable rostack.hpp and an NLopt-enabled pagmo:
-//   g++ -std=c++20 -O3 -pthread rostack_test.cpp -lpagmo -o rostack_test
-//   ./rostack_test
+//   g++ -std=c++20 -O3 -pthread rostack_counterrotating.cpp -lpagmo -o rostack_counterrotating
+//   ./rostack_counterrotating
 // No separate physics .cpp is required; the corrected simple model is below.
 // Check the exact study configuration without pagmo or running optimization:
-//   g++ -std=c++20 -O2 -DROSTACK_CHECK_ONLY rostack_test.cpp -o rostack_check
+//   g++ -std=c++20 -O2 -DROSTACK_CHECK_ONLY rostack_counterrotating.cpp -o rostack_check
 //   ./rostack_check
 #include "rostack.hpp"
 
@@ -32,20 +32,7 @@
 #endif
 
 namespace {
-constexpr double gas_gamma = 1.4;
-constexpr double first_cm1 = 0.4;
-constexpr double max_mach = 1.2;
-constexpr double max_diffusion = 0.55;
-constexpr double constraint_tolerance = 1e-7; // Same as the supplied driver.
-
-// Assumed live-variable bounds: user specified the fixed values, but not these.
-// All velocities use sqrt(Cp * GLOBAL inlet total T) as their reference.
-// Edit these constants to change the search domain.
-constexpr double swirl_lower = 0.0;
-constexpr double swirl_upper = 1.5;
-// Exclude exactly zero to enforce strictly opposite rotation directions.
-constexpr double shaft_u1_lower = 1e-6;
-constexpr double shaft_u1_upper = 1.5;
+constexpr double constraint_tolerance = 1e-7; // Optimizer feasibility tolerance.
 
 using StudyProblem = Rostack_problem<MaximizeTemperatureRatio>;
 // Corrected simple adiabatic row physics, copied from rostack_physics.cpp.
@@ -130,60 +117,39 @@ StagePerformance study_physics(const RotorVariables& rv, double gamma,
 
 StudyProblem make_study()
 {
-    // Ordering: cth2, u1, cm1, k, lambda, sigma, nu, cth1.
-    const Rostack_bounds rotor_bounds{{
-        {swirl_lower, swirl_upper},
-        {shaft_u1_lower, shaft_u1_upper},
-        {first_cm1, first_cm1},
-        {1.0, 1.0},
-        {1.0, 1.0},
-        {1.5, 1.5},
-        {0.5, 0.5},
-        {0.0, 0.0}
-    }};
-    const Rostack_live_vars rotor_live{
-        true, true, false, false, false, false, false, false
-    };
-
+    // Bounds and live-flag order: cth2, u1, cm1, k, lambda, sigma, nu, cth1.
+    // Each add_rotor line is independent: edit its numbers and flags directly.
+    // Rotor 2 inherits cm1/cth1, but each spool has independent u1.
+    // All swirl/speed signs use one common stationary frame.
+    Rostack_model stack{study_physics, 1.4};
     Rostack_spool first_spool;
-    first_spool.add_rotor(rotor_bounds, rotor_live, "Stage 1 compressor");
-
-    auto counter_bounds = rotor_bounds;
-    // Rotation direction does not require negative outlet swirl: a counterrotor
-    // also adds work when positive swirl is reduced. Allow either outlet sign.
-    counter_bounds[0] = {-swirl_upper, swirl_upper};
-    counter_bounds[1] = {-shaft_u1_upper, -shaft_u1_lower};
-    Rostack_spool second_spool;
-    second_spool.add_rotor(counter_bounds, rotor_live, "Stage 2 compressor");
-
-    // All signs use one common stationary frame. The counterrotor inherits
-    // positive inlet swirl from rotor 1; do not negate that inherited flow.
-    // Its negative u1 and outlet swirl below inlet swirl permit positive work:
-    // u1 * (cth2 - cth1) > 0 for lambda=1. Each spool has independent speed.
-
-    Rostack_model stack{study_physics, gas_gamma};
+    first_spool.add_rotor({{{0.0, 1.5}, {1e-6, 1.5}, {0.4, 0.4}, {1.0, 1.0}, {1.0, 1.0}, {1.5, 1.5}, {0.5, 0.5}, {0.0, 0.0}}}, {true, true, false, false, false, false, false, false}, "Stage 1 compressor");
     stack.add_spool(first_spool);
+    Rostack_spool second_spool;
+    second_spool.add_rotor({{{-1.5, 1.5}, {-1.5, -1e-6}, {0.4, 0.4}, {1.0, 1.0}, {1.0, 1.0}, {1.5, 1.5}, {0.5, 0.5}, {0.0, 0.0}}}, {true, true, false, false, false, false, false, false}, "Stage 2 compressor");
     stack.add_spool(second_spool);
-    if (stack.get_n_opt_vars() != 4 || stack.stage_count() != 2 ||
-        stack.spool_count() != 2) {
+    if (stack.get_n_opt_vars() != 4 || stack.stage_count() != 2 || stack.spool_count() != 2) {
         throw std::logic_error("Unexpected study variable/component layout");
     }
 
+    // Each rotor has its own relative frame. Retain both outlet-relative checks.
     std::vector<StageConstraint> constraints;
-    for (std::size_t row = 0; row < stack.stage_count(); ++row) {
-        constraints.push_back(upper(row, &StagePerformance::diffusion, max_diffusion));
-        constraints.push_back(upper(row, &StagePerformance::mach_rel_in, max_mach));
-        constraints.push_back(upper(row, &StagePerformance::mach_rel_out, max_mach));
-        constraints.push_back(upper(row, &StagePerformance::mach_abs_out, max_mach));
-    }
+    constraints.push_back(upper(0, &StagePerformance::diffusion, 0.55));
+    constraints.push_back(upper(0, &StagePerformance::mach_rel_in, 1.2));
+    constraints.push_back(upper(0, &StagePerformance::mach_rel_out, 1.2));
+    constraints.push_back(upper(0, &StagePerformance::mach_abs_out, 0.8));
+    constraints.push_back(upper(1, &StagePerformance::diffusion, 0.55));
+    constraints.push_back(upper(1, &StagePerformance::mach_rel_in, 1.2));
+    constraints.push_back(upper(1, &StagePerformance::mach_rel_out, 1.2));
+    constraints.push_back(upper(1, &StagePerformance::mach_abs_out, 0.8));
 
     // Absolute inlet Mach is checked at the first row (fixed inputs).
     // At every following row it equals the preceding absolute outlet Mach:
     // inlet velocities and total temperature are inherited with no intervening
     // gap heat/work. Those outlet Mach numbers are already constrained above.
-    const double first_absolute_mach = first_cm1 /
-        std::sqrt((gas_gamma - 1.0) * (1.0 - 0.5 * first_cm1 * first_cm1));
-    if (!std::isfinite(first_absolute_mach) || first_absolute_mach >= max_mach) {
+    // Keep this fixed-inlet check in sync if you edit the first cm1 or gamma above.
+    const double first_absolute_mach = 0.4 / std::sqrt((1.4 - 1.0) * (1.0 - 0.5 * 0.4 * 0.4));
+    if (!std::isfinite(first_absolute_mach) || first_absolute_mach >= 0.8) {
         throw std::invalid_argument("Fixed first-stage absolute inlet Mach exceeds limit");
     }
     return StudyProblem{std::move(stack), std::move(constraints)};
@@ -361,12 +327,8 @@ int main() try
               << ", equality constraints: " << udp.get_nec()
               << ", inequality constraints: " << udp.get_nic() << '\n'
               << "Objective: minimize -tau_total (maximize tau_total)\n"
-              << "First rotor: cth2=[" << swirl_lower << ", " << swirl_upper
-              << "], u1=[" << shaft_u1_lower << ", " << shaft_u1_upper << "]\n"
-              << "Counterrotor: cth2=[" << -swirl_upper << ", " << swirl_upper
-              << "], u1=[" << -shaft_u1_upper << ", " << -shaft_u1_lower << "]\n"
-              << "Fixed: first cm1=0.4, first cth1=0, k=lambda=1, sigma=1.5, nu=0.5\n"
-              << "Limits on all components: diffusion <= 0.55, Mach <= 1.2"
+              << "Component bounds, fixed inputs and limits: see explicit lines in make_study().\n"
+              << "Constraint residuals and resolved component inputs are printed below."
               << " (constraint tolerance " << constraint_tolerance << ")\n"
               << "Supplied incumbent tau: " << incumbent_report.result.tau_total << '\n';
 
@@ -540,6 +502,6 @@ int main() try
 }
 catch (const std::exception& e)
 {
-    std::cerr << "rostack_test: " << e.what() << '\n';
+    std::cerr << "rostack_counterrotating: " << e.what() << '\n';
     return 1;
 }

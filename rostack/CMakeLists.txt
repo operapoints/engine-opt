@@ -5,6 +5,7 @@ find_package(Pagmo REQUIRED)
 add_library(rostack
     src/rostack_utils.cpp
     src/rostack_physics.cpp
+    src/rostack_optimizer.cpp
 )
 
 target_include_directories(rostack
@@ -25,5 +26,12 @@ add_executable(rostack_counterrotating
     src/demos/rostack_counterrotating.cpp
 )
 target_link_libraries(rostack_counterrotating
+    PRIVATE rostack Pagmo::pagmo
+)
+
+add_executable(optimize_stack
+    src/demos/optimize_stack.cpp
+)
+target_link_libraries(optimize_stack
     PRIVATE rostack Pagmo::pagmo
 )
