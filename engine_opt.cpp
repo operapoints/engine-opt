@@ -1,4 +1,5 @@
 #include <chrono>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <pagmo/algorithm.hpp>
@@ -156,7 +157,35 @@ void print_progress_summary(const std::string& label,
 }
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+  bool aft_fan = false, quick = false;
+  std::string inspect_file, seed_file;
+  for (int i = 1; i < argc; ++i) {
+      const std::string arg = argv[i];
+      if (arg == "--aftfan") aft_fan = true;
+      else if (arg == "--turbojet") aft_fan = false;
+      else if (arg == "--quick") quick = true;
+      else if ((arg == "--inspect" || arg == "--seed") && i + 1 < argc) {
+          (arg == "--inspect" ? inspect_file : seed_file) = argv[++i];
+      } else if (arg == "--help") {
+          std::cout << "Usage: engine_opt [--turbojet|--aftfan] [--quick] "
+                       "[--seed physical.txt] [--inspect physical.txt]\n"
+                       "Physical files contain 12 or 20 whitespace-separated SI values.\n";
+          return 0;
+      } else {
+          std::cerr << "Unknown option or missing filename: " << arg << '\n';
+          return 2;
+      }
+  }
+  const auto read_physical = [](const std::string& filename) {
+      std::ifstream input(filename);
+      if (!input) throw std::runtime_error("Cannot open physical design: " + filename);
+      pagmo::vector_double values;
+      double value;
+      while (input >> value) values.push_back(value);
+      if (!input.eof()) throw std::invalid_argument("Expected whitespace-separated SI numbers");
+      return values;
+  };
   // auto omega = x[0]; // rad/s - shaft speed
   // auto u_i = x[1];   // m/s   - compressor inlet velocity
   // auto T_4 = x[2];   // K     - combustor exit total temp
@@ -169,63 +198,37 @@ int main() {
   // auto R_Tit = x[9]; // m     - Turbine inlet tip radius
   // auto A_To = x[10]; // m^2   - Turbine outlet area
   // auto R_Tom = x[11];// m     - Turbine exit meanline velocity
-  problem_jet_calc pjc_obj;
+  problem_jet_calc pjc_obj(aft_fan);
   auto start = std::chrono::steady_clock::now();
-#ifdef EVAL_JET_CALC
-  // 10cm
-  pagmo::vector_double x1 = {
-      4648.1,    136.75,  1099.75,   0.0150023, 0.0507001,  0.00750535,
-      0.0799953, 73.5045, 0.0511641, 0.0774573, 0.00759833, 0.0576068,
-  };
-  // 8cm
-  pagmo::vector_double x2 = {
-      4648.1,    136.75,  1099.75,   0.0150023, 0.0507001,  0.00750535,
-      0.0799953, 72.5045, 0.0511641, 0.0774573, 0.00759833, 0.0576068,
-  };
-  // int nsteps = 10;
-  // double min_OPR = 1.5;
-  // double max_OPR = 2.2;
-  // for (int i = 0; i < nsteps; i++){
-  //     auto xi = x2;
-  //     double OPRi = min_OPR + (max_OPR - min_OPR)*(float(i)/float(nsteps));
-  //     //xi[7] = 298*(std::pow(OPRi,(0.4/1.4))-1)/0.75;
-  //     auto res = pjc_obj.fitness(xi);
-  //     std::cout << "D T C : " << OPRi << " || Objective : " << -res[0] <<
-  //     "\n";
-  // }
-
-  // Max thrust
-  pagmo::vector_double x3 = {
-      14684.1,   125.722, 991.887,   0.00504372, 0.0164868,  0.000539293,
-      0.0299262, 104.827, 0.0155055, 0.0245546,  0.00169747, 0.0209158,
-  };
-  pjc_obj.fitness(x1);
-  pjc_obj.fitness(x2);
-  pjc_obj.fitness(x3);
-#endif
   pagmo::problem pjc{pjc_obj};
   pjc.set_c_tol(1e-7);
   std::cout << std::setprecision(17) << pjc;
-  const pagmo::vector_double incumbent_physical = {
+  pagmo::vector_double incumbent_physical = {
       7363.24, 253.786, 1097.32, 0.0230949, 0.0418834, 0.0114587,
       0.0799527, 183.448, 0.049076, 0.0613163, 0.00424502, 0.055194
   };
-  if (incumbent_physical.size() != problem_jet_calc::design_size) {
-      throw std::invalid_argument("Incumbent dimension does not match header bounds");
+  if (aft_fan) {
+      // Illustrative starting point, not a verified feasible aft-fan incumbent.
+      incumbent_physical.insert(incumbent_physical.end(), {-30., 2500., 0.01, 0.06, 140., 0.04, 0.045, 0.075});
   }
-  auto incumbent_x = incumbent_physical;
-  for (std::size_t j = 0; j < incumbent_x.size(); ++j) {
-      const double span = problem_jet_calc::physical_upper[j]
-                        - problem_jet_calc::physical_lower[j];
-      if (!(span > 0.0)) throw std::invalid_argument("Invalid physical bounds");
-      incumbent_x[j] = (incumbent_x[j] - problem_jet_calc::physical_lower[j]) / span;
-      if (!std::isfinite(incumbent_x[j]) || incumbent_x[j] < 0.0 || incumbent_x[j] > 1.0) {
-          throw std::invalid_argument("Incumbent lies outside header bounds");
-      }
+  if (!seed_file.empty()) incumbent_physical = read_physical(seed_file);
+  if (!inspect_file.empty()) {
+      const auto x = pjc_obj.normalize(read_physical(inspect_file));
+      std::unordered_map<std::string, double> results;
+      const auto f = pjc_obj.fitness(x, &results);
+      print_fitness_diagnostics("Inspected design", f, pjc);
+      for (std::size_t j = 1; j < f.size(); ++j)
+          std::cout << "Constraint " << j << ": " << f[j] << '\n';
+      if (results.empty()) std::cout << "Invalid physical state; evaluation returned penalties.\n";
+      for (const auto& entry : results)
+          std::cout << entry.first << " : " << entry.second << '\n';
+      return results.empty() ? 1 : 0;
   }
+  const auto incumbent_x = pjc_obj.normalize(incumbent_physical);
+  std::cout << "Engine mode: " << (aft_fan ? "aft fan" : "turbojet") << '\n';
   const auto incumbent_f = pjc.fitness(incumbent_x);
   algorithm algo{gaco(
-        100,//gen
+        quick ? 2u : 100u,//gen
         31,//ker
         1,//q
         100,//oracle
@@ -239,14 +242,14 @@ int main() {
     )};
   pagmo::fully_connected fc_udt{};
   pagmo::topology topo{fc_udt};
-  archipelago archi(topo, 32u, algo, pjc, 6000u);
+  archipelago archi(topo, quick ? 2u : 32u, algo, pjc, quick ? 64u : 6000u);
   // Replace one individual on every island; keep the other random candidates.
   for (auto& island : archi) {
       auto pop = island.get_population();
       pop.set_xf(pop.worst_idx(), incumbent_x, incumbent_f);
       island.set_population(pop);
   }
-  int n_evolves = 8; // Increase this to 10 to get the last 0.1%
+  int n_evolves = quick ? 1 : 8; // Increase this to 10 to get the last 0.1%
   for (int evolve = 0; evolve < n_evolves; evolve++) {
     archi.evolve(1);
     archi.wait_check();
@@ -259,7 +262,7 @@ int main() {
     // ----- Local refinement of island champions -----
     algorithm local_algo{nlopt("cobyla")};
     auto* nl = local_algo.extract<nlopt>();
-    nl->set_maxeval(2000);       // much bigger budget than 200
+    nl->set_maxeval(quick ? 50 : 2000);       // much bigger budget than 200
     nl->set_xtol_rel(1e-10);
     nl->set_ftol_rel(1e-10);
     nl->set_xtol_abs(1e-12);
@@ -283,7 +286,7 @@ int main() {
         refined_f.push_back(local_populations.back().champion_f());
     }
     std::vector<bool> active(champions_x.size(), true);
-    constexpr int max_passes = 20;
+    const int max_passes = quick ? 1 : 20;
     for (int pass = 0; pass < max_passes; ++pass) {
         std::size_t attempted = 0;
         std::size_t errors = 0;
@@ -329,13 +332,7 @@ int main() {
     // Keep refined_x normalized for further fitness() evaluations.
     // Store a separate copy in SI units for printing and physical calculations.
     auto physical_x = refined_x;
-    for (auto& x : physical_x) {
-        for (std::size_t j = 0; j < problem_jet_calc::design_size; ++j) {
-            x[j] = problem_jet_calc::physical_lower[j]
-                + x[j] * (problem_jet_calc::physical_upper[j]
-                          - problem_jet_calc::physical_lower[j]);
-        }
-    }
+    for (auto& x : physical_x) x = pjc_obj.denormalize(x);
 
     // ----- Rank refined champions and print the top k -----
     int k = 1; // Number of champions to report
@@ -382,6 +379,8 @@ int main() {
     // A non-null results pointer enables the detailed jet-calculation output.
     std::unordered_map<std::string, double> results;
     pjc_obj.fitness(refined_x[idx.front()], &results);
+    if (results.empty())
+        std::cout << "Best candidate has an invalid physical state; no detailed results.\n";
 
     std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
     std::cout << "Further details\n";

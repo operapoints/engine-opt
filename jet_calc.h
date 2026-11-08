@@ -15,6 +15,19 @@ using namespace pagmo;
 
 struct problem_jet_calc{
     public:
+        // Two independent shafts: core compressor/HPT and outer aft fan/LPT.
+        explicit problem_jet_calc(bool aft_fan = false) : aft_fan_(aft_fan) {}
+        bool is_aft_fan() const { return aft_fan_; }
+        std::size_t get_design_size() const { return aft_fan_ ? design_size + 8 : design_size; }
+        std::pair<vector_double, vector_double> get_physical_bounds() const;
+        vector_double normalize(const vector_double &physical) const;
+        vector_double denormalize(const vector_double &normalized) const;
+        // Fork's eight appended physical bounds; core bounds remain those of main.
+        static constexpr double aft_lower[] = {-300., 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 0.015, 0.015};
+        static constexpr double aft_upper[] = {0., 20000., 0.2, 0.2, 300., 0.2, 0.2, 0.2};
+        // Provisional: the fork header defining these settings was not supplied.
+        double eta_fan = 0.85;
+        double M_max_fan = 1.2;
         // Non-varying parameters
         // Define things like environment parameters and compenent efficiencies here
         // Physical bounds in design-vector order. Optimizer coordinates are in [0, 1]:
@@ -62,7 +75,9 @@ struct problem_jet_calc{
         vector_double::size_type get_nic() const;
         vector_double fitness(const vector_double &x, std::unordered_map<std::string,double> *results_ptr = nullptr) const;
         std::pair<vector_double, vector_double> get_bounds() const;
-    // private: 
+    private:
+        bool aft_fan_ = false;
+    public:
         double compute_u_a(double m_dot,
                         double rho_t,
                         double T_t,
@@ -70,7 +85,7 @@ struct problem_jet_calc{
                         double gam,
                         double A) const;
         bool invalid_ret(vector_double& x) const;
-        double is_cordier(double sigma, double delta) const;
+        double is_cordier(double sigma, double delta, double max_sigma = 2.5) const;
         double cordier(double sigma) const;
         std::vector<double> compute_contour_val(double T_4, double OPR, double spec_speed_C=0.4) const;
 };
