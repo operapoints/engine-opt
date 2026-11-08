@@ -25,8 +25,9 @@ struct problem_jet_calc{
         // Fork's eight appended physical bounds; core bounds remain those of main.
         static constexpr double aft_lower[] = {-300., 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 0.015, 0.015};
         static constexpr double aft_upper[] = {0., 20000., 0.2, 0.2, 300., 0.2, 0.2, 0.2};
-        // Provisional: the fork header defining these settings was not supplied.
+        // Fan efficiency remains provisional; the fork header was not supplied.
         double eta_fan = 0.85;
+        // User-selected fan inlet relative tip Mach limit.
         double M_max_fan = 1.2;
         // Non-varying parameters
         // Define things like environment parameters and compenent efficiencies here

@@ -13,6 +13,56 @@
 using namespace pagmo;
 
 namespace {
+struct TurbineSpanMach {
+    double inlet_hub = 0., inlet_shroud = 0.;
+    double ngv_hub = 0., ngv_shroud = 0.;
+    double outlet_hub = 0., outlet_shroud = 0.;
+};
+
+// Same free-vortex/uniform-axial convention as the blading evaluation.
+// Local static temperature is a physical scalar, independent of reference frame.
+bool turbine_span_mach(TurbineSpanMach& mach, double omega,
+                       double r_ih, double r_it, double r_oh, double r_ot,
+                       double c_theta_mean, double c_axial_in, double c_axial_out,
+                       double T_total_in, double T_total_out, double cp,
+                       double gamma, double gas_R) {
+    if (!(r_ih > 0. && r_it > r_ih && r_oh > 0. && r_ot > r_oh)) return false;
+    const double vortex = 0.5*(r_ih+r_it)*c_theta_mean;
+    const auto inlet_mach = [&](double r, double& absolute_mach) {
+        const double swirl = vortex/r;
+        const double ts = T_total_in-(c_axial_in*c_axial_in+swirl*swirl)/(2*cp);
+        if (!(ts>0.)) return std::numeric_limits<double>::quiet_NaN();
+        const double sound_speed = std::sqrt(gamma*gas_R*ts);
+        absolute_mach = std::hypot(c_axial_in,swirl)/sound_speed;
+        return std::hypot(c_axial_in,swirl-omega*r)/sound_speed;
+    };
+    // Both rotors have zero absolute exit swirl and uniform exit axial velocity.
+    const double ts_out = T_total_out-c_axial_out*c_axial_out/(2*cp);
+    if (!(ts_out>0.)) return false;
+    const double a_out = std::sqrt(gamma*gas_R*ts_out);
+    mach.inlet_hub = inlet_mach(r_ih,mach.ngv_hub);
+    mach.inlet_shroud = inlet_mach(r_it,mach.ngv_shroud);
+    mach.outlet_hub = std::hypot(c_axial_out,omega*r_oh)/a_out;
+    mach.outlet_shroud = std::hypot(c_axial_out,omega*r_ot)/a_out;
+    return std::isfinite(mach.inlet_hub) && std::isfinite(mach.inlet_shroud) &&
+           std::isfinite(mach.ngv_hub) && std::isfinite(mach.ngv_shroud) &&
+           std::isfinite(mach.outlet_hub) && std::isfinite(mach.outlet_shroud);
+}
+
+void record_turbine_mach(std::unordered_map<std::string,double>& out,
+                         const std::string& stage, const TurbineSpanMach& mach,
+                         double mean_in, double mean_out, double mean_ngv) {
+    out["[] "+stage+" NGV exit Mach (hub)"] = mach.ngv_hub;
+    out["[] "+stage+" NGV exit Mach (shroud)"] = mach.ngv_shroud;
+    out["[] "+stage+" NGV exit Mach (mean)"] = mean_ngv;
+    out["[] "+stage+" inlet relative Mach (hub)"] = mach.inlet_hub;
+    out["[] "+stage+" inlet relative Mach (shroud)"] = mach.inlet_shroud;
+    out["[] "+stage+" outlet relative Mach (hub)"] = mach.outlet_hub;
+    out["[] "+stage+" outlet relative Mach (shroud)"] = mach.outlet_shroud;
+    out["[] "+stage+" inlet relative Mach (mean)"] = mean_in;
+    out["[] "+stage+" outlet relative Mach (mean)"] = mean_out;
+}
+
 // Ideal free vortex: r*C_theta is constant and axial velocity is constant across
 // the span. Meanline continuity remains the existing quasi-1D approximation.
 // Rotor-inlet beta follows rotation; outlet beta is the positive opposing angle,
@@ -55,7 +105,7 @@ vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return aft_fan_ ? 36 : 21;
+    return aft_fan_ ? 42 : 24;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
@@ -256,10 +306,8 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double Ts_Ti = T_4 + D_Ts_NGV;
         double Ps_Ti = P_4 * std::pow(Ts_Ti/T_4, (gam_h)/(gam_h-1));
         double M_NGVo = std::pow((u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia)/(gam_h*R*Ts_Ti),0.5);
-        double con_M_NGVo = M_NGVo - 0.9; // Main-branch NGV exit Mach limit
         double u_Tith_ROT = u_Tith_STAT - omega*R_Tim;
         double M_Ti = std::pow((u_Tith_ROT*u_Tith_ROT + u_Tia*u_Tia)/(gam_h*R*Ts_Ti),0.5);
-        double con_M_Ti = M_Ti - 0.8;// Turbine inlet mach less than 0.8
         double beta_Tim = (180/M_PI)*std::atan(u_Tith_ROT/u_Tia);
         double con_beta_Tim = std::abs(beta_Tim) - 65;// Turbine inlet angle less than 65 degrees
         double u_Toa = compute_u_a(m_dot * (1+f), P_5/(R*T_5), T_5, 0, gam_h, A_To);
@@ -275,7 +323,6 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double con_turbine_outlet_width = 0.009 - A_To/(2*M_PI*R_Tom); // Turbine outlet width more than 9mm
         double R_Tot = R_Tom + A_To/(4*M_PI*R_Tom);
         double M_Tom = std::pow((u_Toa*u_Toa + omega*omega*R_Tom*R_Tom)/(gam_h*R*Ts_To),0.5);
-        double con_M_Tom = M_Tom - 0.9; // Main-branch relative turbine exit Mach limit
         double M_Toa = u_Toa / std::pow((gam_h*R*Ts_To),0.5);
 
         // Degree of reaction calculation
@@ -289,6 +336,13 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double con_R_Toh = 0.004 - R_Toh;// Inner radius of turbine outlet must be at least 4mm
         double sigma_max_To = 0.5*omega*omega*rho_T*(R_Tot*R_Tot - R_Toh*R_Toh);
         double con_sigma_max_To = FOS_T * sigma_max_To - sigma_max_T;// FOS at compressor inlet blade root
+        TurbineSpanMach hpt_mach;
+        if (!turbine_span_mach(hpt_mach,omega,R_Tih,R_Tit,R_Toh,R_Tot,
+                              u_Tith_STAT,u_Tia,u_Toa,T_4,T_5,C_ph,gam_h,R))
+            return penalty();
+        // Opposing-sign hub/shroud migration, allowing a stationary boundary.
+        // Normalize the product (m^2) by a 10 mm reference length squared.
+        const double con_HPT_migration = (R_Tih-R_Toh)*(R_Tit-R_Tot)/(0.01*0.01);
         double con_turbine_tip_geom = R_Tit - R_Tot;
         double con_turbine_hub_geom = R_Toh - R_Tih;
 
@@ -299,12 +353,13 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double spec_speed_fan = 0., spec_dia_fan = 0.;
         double con_LPT_backpres = 0., con_sigma_max_LPTo = 0., con_Mach_fan_tip = 0.;
         double con_sigma_max_fano = 0., con_phi_LPT = 0., con_psi_LPT = 0.;
-        double con_cordier_fan = 0., con_M_LPTo = 0.;
+        double con_cordier_fan = 0., M_LPTo = 0.;
+        TurbineSpanMach lpt_mach;
         double u_LPTia = 0., u_LPTith_STAT = 0., Ts_LPTi = 0., Ps_LPTi = 0.;
         double Ts_LPTo = 0., DoR_LPT = 0., R_LPT_mean = 0.;
         double M_LPTNGVo = 0., M_LPTi = 0., M_LPToa = 0.;
         double beta_LPTNGV = 0., beta_LPTim = 0., beta_LPTom = 0.;
-        double con_DoR_LPT = 0., con_M_LPTNGVo = 0., con_M_LPTi = 0.;
+        double con_DoR_LPT = 0., con_LPT_migration = 0.;
         double con_LPT_width = 0., con_LPT_outlet_width = 0., con_sigma_max_LPTi = 0.;
         if (aft_fan_) {
             // LPT: same inlet/rotor/outlet convention as HPT; zero exit swirl.
@@ -333,6 +388,10 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             D_T_fan = -(C_ph*m_dot*(1+f)*D_T_LPT)/(C_pc*m_dot_fan);
             T_fano = D_T_fan+T_0;
             P_fano = P_0*std::pow((T_0+eta_fan*D_T_fan)/T_0,(gam_c/(gam_c-1)));
+            // Architecture assumption: an independently supported outer ring carries
+            // fan centrifugal loads; its LPT coupling transmits torque only.
+            // Do not add fan radial load to the LPT blade-root stress estimate.
+            // Ring/attachment strength and mass are not sized by this surrogate.
             double sigma_max_fano = 0.5*omega_LPT*omega_LPT*rho_T*(R_fan * R_fan - R_LPTot*R_LPTot);
             con_sigma_max_fano = FOS_T * sigma_max_fano - sigma_max_T;// FOS at compressor inlet blade root
 
@@ -358,11 +417,9 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             Ts_LPTi = T_5+D_Ts_LPTNGV;
             Ps_LPTi = P_5*std::pow(Ts_LPTi/T_5,gam_h/(gam_h-1));
             M_LPTNGVo = u_LPTi_STAT/std::sqrt(gam_h*R*Ts_LPTi);
-            con_M_LPTNGVo = M_LPTNGVo-0.9;
             const double u_LPTith_ROT = u_LPTith_STAT-omega_LPT*R_LPTim;
             beta_LPTim = 180./M_PI*std::atan2(u_LPTith_ROT,u_LPTia);
             M_LPTi = std::hypot(u_LPTith_ROT,u_LPTia)/std::sqrt(gam_h*R*Ts_LPTi);
-            con_M_LPTi = M_LPTi-0.8;
             // Same mean-radius definitions, coefficient ranges and residuals as HPT.
             R_LPT_mean = 0.5*(R_LPTim+R_LPTom);
             phi_LPT = u_LPTia/(omega_LPT*R_LPT_mean);
@@ -374,7 +431,11 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             u_LPToa = compute_u_a(m_dot*(1+f), P_6/(R*T_6), T_6, 0., gam_h, A_LPTo);
             if (!std::isfinite(u_LPToa)) return penalty();
             Ts_LPTo = T_6-u_LPToa*u_LPToa/(2*C_ph);
-            con_M_LPTo = std::hypot(u_LPToa,omega_LPT*R_LPTom)/std::sqrt(gam_h*R*Ts_LPTo)-0.9;
+            M_LPTo = std::hypot(u_LPToa,omega_LPT*R_LPTom)/std::sqrt(gam_h*R*Ts_LPTo);
+            if (!turbine_span_mach(lpt_mach,omega_LPT,R_LPTih,R_LPTit,R_LPToh,R_LPTot,
+                                  u_LPTith_STAT,u_LPTia,u_LPToa,T_5,T_6,C_ph,gam_h,R))
+                return penalty();
+            con_LPT_migration = (R_LPTih-R_LPToh)*(R_LPTit-R_LPTot)/(0.01*0.01);
             M_LPToa = u_LPToa/std::sqrt(gam_h*R*Ts_LPTo);
             beta_LPTom = 180./M_PI*std::atan2(omega_LPT*R_LPTom,u_LPToa);
             // Angle limits remain diagnostic-only for both turbines, as in main.
@@ -463,9 +524,9 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             con_M_Co_ROT, 
             con_M_Co_STAT, 
             con_R_Coh,
-            con_M_NGVo, 
-            con_M_Ti, 
-            con_M_Tom, 
+            hpt_mach.ngv_hub-0.9,
+            hpt_mach.inlet_hub-0.8,
+            hpt_mach.outlet_hub-0.9,
             con_phi_T, 
             con_psi_T, 
             con_T_width/0.01, // con_turbine_diffusion, 
@@ -485,12 +546,22 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                 con_Mach_fan_tip, con_cordier_fan,
                 con_sigma_max_fano/1.e9, con_sigma_max_LPTo/1.e9,
                 (0.004-R_LPToh)/0.005,
-                con_M_LPTo,
-                con_DoR_LPT/0.4, con_M_LPTNGVo, con_M_LPTi,
+                lpt_mach.outlet_hub-0.9,
+                con_DoR_LPT/0.4, lpt_mach.ngv_hub-0.9, lpt_mach.inlet_hub-0.8,
                 con_LPT_width/0.01, con_LPT_outlet_width/0.01,
                 con_sigma_max_LPTi/1.e9
             });
         }
+
+        // Preserve prior indices: former meanline slots now constrain the hub.
+        // Append shroud constraints after the existing engine-specific entries.
+        ret.insert(ret.end(), {hpt_mach.inlet_shroud-0.8,hpt_mach.outlet_shroud-0.9});
+        if (aft_fan_)
+            ret.insert(ret.end(), {lpt_mach.inlet_shroud-0.8,lpt_mach.outlet_shroud-0.9});
+
+        // Append one geometry heuristic per turbine, preserving all prior slots.
+        ret.push_back(con_HPT_migration);
+        if (aft_fan_) ret.push_back(con_LPT_migration);
 
         if (invalid_ret(ret)) return penalty();
 
@@ -503,6 +574,9 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                 (*results_ptr)["[kg/s] Core air mass flow"] = m_dot;
                 (*results_ptr)["[kg/s] Fuel mass flow"] = m_dot*f;
                 if (aft_fan_) {
+                    (*results_ptr)["[m] LPT hub radius change (inlet-outlet)"] = R_LPTih-R_LPToh;
+                    (*results_ptr)["[m] LPT shroud radius change (inlet-outlet)"] = R_LPTit-R_LPTot;
+                    (*results_ptr)["[] LPT radius migration residual"] = con_LPT_migration;
                     (*results_ptr)["[m] LPT inlet hub radius"] = R_LPTih;
                     (*results_ptr)["[m] LPT inlet tip radius"] = R_LPTit;
                     (*results_ptr)["[m] LPT coefficient reference radius"] = R_LPT_mean;
@@ -538,17 +612,23 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                     (*results_ptr)["[] Fan work coefficient"] = psi_fan;
                     (*results_ptr)["[] Fan specific speed"] = spec_speed_fan;
                     (*results_ptr)["[W] LPT extracted power"] = -m_dot*(1+f)*C_ph*D_T_LPT;
+                    (*results_ptr)["[N m] LPT-to-fan transmitted torque"] = -m_dot*(1+f)*C_ph*D_T_LPT/omega_LPT;
                     (*results_ptr)["[W] Fan absorbed power"] = m_dot_fan*C_pc*D_T_fan;
                     (*results_ptr)["[] Fan relative tip Mach"] = con_Mach_fan_tip + M_max_fan;
-                    (*results_ptr)["[] LPT exit relative Mach"] = con_M_LPTo + 0.9;
+                    (*results_ptr)["[] LPT exit relative Mach"] = M_LPTo; // Legacy meanline key
+                    record_turbine_mach(*results_ptr,"LPT",lpt_mach,M_LPTi,M_LPTo,M_LPTNGVo);
                     (*results_ptr)["[] Fan efficiency (assumed)"] = eta_fan;
                     (*results_ptr)["[kg] LPT mass estimate"] = m_LPT;
                     (*results_ptr)["[kg] Fan mass estimate"] = m_fan;
                 }
+                (*results_ptr)["[m] HPT hub radius change (inlet-outlet)"] = R_Tih-R_Toh;
+                (*results_ptr)["[m] HPT shroud radius change (inlet-outlet)"] = R_Tit-R_Tot;
+                (*results_ptr)["[] HPT radius migration residual"] = con_HPT_migration;
                 (*results_ptr)["[kg] Compressor prismatic mass"] = m_Compressor_prismatic;
                 (*results_ptr)["[kg] HPT prismatic mass"] = m_Turbine_prismatic;
                 (*results_ptr)["[m] Core casing radius"] = R_overall;
                 (*results_ptr)["[] HPT degree of reaction"] = DoR;
+                record_turbine_mach(*results_ptr,"HPT",hpt_mach,M_Ti,M_Tom,M_NGVo);
                 evaluate_turbine_blading(*results_ptr,"HPT",omega,R_Tih,R_Tit,R_Toh,R_Tot,
                                          u_Tith_STAT,u_Tia,u_Toa,T_4,C_ph);
                 (*results_ptr)["[] Compressor specific speed"] = spec_speed_C;
