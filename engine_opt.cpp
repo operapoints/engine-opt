@@ -23,6 +23,7 @@
 #include <pagmo/utils/constrained.hpp>
 
 #include "jet_calc.h"
+#include "pareto_export.h"
 
 namespace {
 struct ConstraintDiagnostics {
@@ -157,26 +158,10 @@ void print_progress_summary(const std::string& label,
 }
 } // namespace
 
-int main(int argc, char** argv) {
-  bool aft_fan = false, quick = false;
-  std::string inspect_file, seed_file;
-  for (int i = 1; i < argc; ++i) {
-      const std::string arg = argv[i];
-      if (arg == "--aftfan") aft_fan = true;
-      else if (arg == "--turbojet") aft_fan = false;
-      else if (arg == "--quick") quick = true;
-      else if ((arg == "--inspect" || arg == "--seed") && i + 1 < argc) {
-          (arg == "--inspect" ? inspect_file : seed_file) = argv[++i];
-      } else if (arg == "--help") {
-          std::cout << "Usage: engine_opt [--turbojet|--aftfan] [--quick] "
-                       "[--seed physical.txt] [--inspect physical.txt]\n"
-                       "Physical files contain 12 or 20 whitespace-separated SI values.\n";
-          return 0;
-      } else {
-          std::cerr << "Unknown option or missing filename: " << arg << '\n';
-          return 2;
-      }
-  }
+// The single-design and sweep paths share exactly the same optimizer budgets.
+ParetoPoint run_optimization(bool aft_fan, bool quick, double min_isp,
+                             const std::string& inspect_file,
+                             const std::string& seed_file) {
   const auto read_physical = [](const std::string& filename) {
       std::ifstream input(filename);
       if (!input) throw std::runtime_error("Cannot open physical design: " + filename);
@@ -198,7 +183,7 @@ int main(int argc, char** argv) {
   // auto R_Tit = x[9]; // m     - Turbine inlet tip radius
   // auto A_To = x[10]; // m^2   - Turbine outlet area
   // auto R_Tom = x[11];// m     - Turbine exit meanline velocity
-  problem_jet_calc pjc_obj(aft_fan);
+  problem_jet_calc pjc_obj(aft_fan, min_isp);
   auto start = std::chrono::steady_clock::now();
   pagmo::problem pjc{pjc_obj};
   pjc.set_c_tol(1e-7);
@@ -222,7 +207,8 @@ int main(int argc, char** argv) {
       if (results.empty()) std::cout << "Invalid physical state; evaluation returned penalties.\n";
       for (const auto& entry : results)
           std::cout << entry.first << " : " << entry.second << '\n';
-      return results.empty() ? 1 : 0;
+      if (results.empty()) throw std::runtime_error("Invalid inspected physical state");
+      return ParetoPoint{};
   }
   const auto incumbent_x = pjc_obj.normalize(incumbent_physical);
   std::cout << "Engine mode: " << (aft_fan ? "aft fan" : "turbojet") << '\n';
@@ -249,10 +235,29 @@ int main(int argc, char** argv) {
       pop.set_xf(pop.worst_idx(), incumbent_x, incumbent_f);
       island.set_population(pop);
   }
+  // Retain feasible island members before polishing: local solvers may lose
+  // feasibility or stop at a heavier solution. Re-evaluate before export.
+  std::vector<pagmo::vector_double> export_candidates{incumbent_x};
+  const auto retain_island_candidates = [&]() {
+      for (auto& island : archi) {
+          const auto pop = island.get_population();
+          const auto& xs = pop.get_x();
+          const auto& fs = pop.get_f();
+          std::size_t best = xs.size();
+          for (std::size_t i = 0; i < xs.size(); ++i) {
+              if (std::all_of(fs[i].begin(), fs[i].end(),
+                              [](double v) { return std::isfinite(v); })
+                  && pjc.feasibility_f(fs[i])
+                  && (best == xs.size() || fs[i][0] < fs[best][0])) best = i;
+          }
+          if (best != xs.size()) export_candidates.push_back(xs[best]);
+      }
+  };
   int n_evolves = quick ? 1 : 8; // Increase this to 10 to get the last 0.1%
   for (int evolve = 0; evolve < n_evolves; evolve++) {
     archi.evolve(1);
     archi.wait_check();
+    retain_island_candidates();
     const auto champions_f = archi.get_champions_f();
     print_progress_summary("Round " + std::to_string(evolve + 1) + " / "
                            + std::to_string(n_evolves), champions_f, pjc, champions_f.size());
@@ -329,6 +334,31 @@ int main(int argc, char** argv) {
         if (remaining == 0) break;
     }
 
+    export_candidates.insert(export_candidates.end(), refined_x.begin(), refined_x.end());
+    ParetoPoint best;
+    for (const auto& candidate : export_candidates) {
+        std::unordered_map<std::string, double> details;
+        const auto evaluated = pjc_obj.fitness(candidate, &details);
+        if (!std::all_of(evaluated.begin(), evaluated.end(),
+                         [](double v) { return std::isfinite(v); })
+            || !pjc.feasibility_f(evaluated)) continue;
+        const auto isp = details.find("[s] Specific impulse");
+        const auto thrust = details.find("[N] Total thrust");
+        const auto fuel = details.find("[kg/s] Fuel mass flow");
+        if (isp == details.end() || thrust == details.end() || fuel == details.end()) continue;
+        ParetoPoint point{aft_fan ? "aftfan" : "turbojet", min_isp,
+                          isp->second, evaluated[0], thrust->second, fuel->second,
+                          pjc_obj.denormalize(candidate)};
+        if (valid_point(point) && (!valid_point(best) || point.mass_kg < best.mass_kg
+            || (point.mass_kg == best.mass_kg && point.isp_s > best.isp_s))) best = point;
+    }
+
+    if (valid_point(best))
+        std::cout << "Best feasible retained candidate: mass=" << best.mass_kg
+                  << " kg, achieved Isp=" << best.isp_s << " s\n";
+    else
+        std::cout << "No feasible candidate available for export.\n";
+
     // Keep refined_x normalized for further fitness() evaluations.
     // Store a separate copy in SI units for printing and physical calculations.
     auto physical_x = refined_x;
@@ -402,5 +432,87 @@ int main(int argc, char** argv) {
   // for (int i = 0 ; i < ret.size(); i++){
   //     std::cout << ret[i] << '\n';
   // }
-  return 0;
+  return best;
+}
+
+int main(int argc, char** argv) {
+  try {
+    bool aft_fan = false, quick = false, sweep = false, explicit_mode = false;
+    bool explicit_isp = false;
+    double min_isp = 2870.;
+    std::string inspect_file, seed_file, aft_seed, jet_seed, prefix = "engine";
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        const auto value = [&]() -> std::string {
+            if (i + 1 >= argc) throw std::invalid_argument("Missing value for " + arg);
+            return argv[++i];
+        };
+        if (arg == "--aftfan" || arg == "--turbojet") {
+            aft_fan = arg == "--aftfan"; explicit_mode = true;
+        } else if (arg == "--quick") quick = true;
+        else if (arg == "--pareto") sweep = true;
+        else if (arg == "--output-prefix") prefix = value();
+        else if (arg == "--inspect") inspect_file = value();
+        else if (arg == "--seed") seed_file = value();
+        else if (arg == "--seed-aftfan") aft_seed = value();
+        else if (arg == "--seed-turbojet") jet_seed = value();
+        else if (arg == "--min-isp") {
+            const auto text = value();
+            std::size_t used = 0;
+            min_isp = std::stod(text, &used); explicit_isp = true;
+            if (used != text.size() || !std::isfinite(min_isp) || min_isp <= 0.)
+                throw std::invalid_argument("Minimum Isp must be finite and positive");
+        } else if (arg == "--help") {
+            std::cout << "Single run: engine_opt [--turbojet|--aftfan] [--min-isp seconds] "
+                         "[--quick] [--seed physical.txt] [--inspect physical.txt]\n"
+                         "Sweep both modes: engine_opt --pareto [--output-prefix engine] "
+                         "[--quick] [--seed-turbojet jet.txt] [--seed-aftfan fan.txt]\n"
+                         "Physical files contain 12 (turbojet) or 20 (aftfan) SI numbers.\n";
+            return 0;
+        } else throw std::invalid_argument("Unknown option: " + arg);
+    }
+    if (!sweep) {
+        if (!aft_seed.empty() || !jet_seed.empty() || prefix != "engine")
+            throw std::invalid_argument("Mode-specific seeds and output prefix require --pareto");
+        const auto result = run_optimization(aft_fan, quick, min_isp, inspect_file, seed_file);
+        return inspect_file.empty() && !valid_point(result) ? 1 : 0;
+    }
+    if (explicit_mode || explicit_isp || !inspect_file.empty() || !seed_file.empty())
+        throw std::invalid_argument("--pareto runs both fixed grids; use mode-specific seed options");
+    if (prefix.empty()) throw std::invalid_argument("Output prefix must not be empty");
+    std::vector<ParetoPoint> points;
+    // Header-only files are intentional when no feasible designs have been found.
+    // Checkpoint after every threshold, so lengthy sweeps retain completed work.
+    const auto checkpoint = [&]() {
+        write_pareto_csv(prefix + "_sweep.csv", points, false);
+        write_pareto_csv(prefix + "_pareto.csv", points, true);
+    };
+    checkpoint();
+    std::size_t failed_runs = 0;
+    for (bool fan : {true, false}) {
+        const std::vector<double> thresholds = fan
+            ? std::vector<double>{3628., 4000., 4500., 4750., 5000., 5250.}
+            : std::vector<double>{2429., 2600., 2800., 3000., 3100., 3240.};
+        for (double threshold : thresholds) {
+            std::cout << "\n=== " << (fan ? "aftfan" : "turbojet")
+                      << ": minimum Isp " << threshold << " s ===\n";
+            try {
+                const auto point = run_optimization(fan, quick, threshold, "",
+                                                    fan ? aft_seed : jet_seed);
+                if (valid_point(point)) points.push_back(point);
+                else std::cerr << "No feasible design found; no CSV row written.\n";
+            } catch (const std::exception& e) {
+                ++failed_runs;
+                std::cerr << "Threshold run failed; no CSV row written: " << e.what() << '\n';
+            }
+            checkpoint();
+        }
+    }
+    std::cout << "Wrote " << points.size() << " feasible threshold results to "
+              << prefix << "_sweep.csv and nondominated subsets to " << prefix << "_pareto.csv\n";
+    return points.empty() || failed_runs ? 1 : 0;
+  } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << '\n';
+    return 2;
+  }
 }

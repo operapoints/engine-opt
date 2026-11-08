@@ -23,7 +23,8 @@ message(STATUS "NumPy include:    ${Python3_NUMPY_INCLUDE_DIRS}")
 add_executable(engine_opt
     engine_opt.cpp
     jet_calc.cpp
-    jet_calc.h)
+    jet_calc.h
+    pareto_export.h)
 
 
 target_link_libraries(engine_opt PRIVATE Pagmo::pagmo)

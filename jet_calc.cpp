@@ -509,7 +509,8 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
 
         //Calculate objective and normalize
         double Isp = (F/(m_dot*f*g));
-        double con_min_Isp = (2870.) - Isp;
+        double con_min_Isp = min_isp_ - Isp;
+
         vector_double ret = {m_total,//-(35*(std::min(F/355.86,1.25))+25*std::min(1.50/(3600/Isp),1.25)+10*std::min(F/(g*m_total*10),1.25)), 
             // 0*con_beta_Ci_tip/70., 
             // 0*con_beta_Co/70., 
@@ -542,13 +543,20 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
 
         if (aft_fan_) {
             ret.insert(ret.end(), {
-                con_LPT_backpres/101325., con_phi_LPT, con_psi_LPT,
-                con_Mach_fan_tip, con_cordier_fan,
-                con_sigma_max_fano/1.e9, con_sigma_max_LPTo/1.e9,
+                con_LPT_backpres/101325.,
+                con_phi_LPT,
+                con_psi_LPT,
+                con_Mach_fan_tip, 
+                con_cordier_fan,
+                con_sigma_max_fano/1.e9, 
+                con_sigma_max_LPTo/1.e9,
                 (0.004-R_LPToh)/0.005,
                 lpt_mach.outlet_hub-0.9,
-                con_DoR_LPT/0.4, lpt_mach.ngv_hub-0.9, lpt_mach.inlet_hub-0.8,
-                con_LPT_width/0.01, con_LPT_outlet_width/0.01,
+                con_DoR_LPT/0.4, 
+                lpt_mach.ngv_hub-0.9, 
+                lpt_mach.inlet_hub-0.8,
+                con_LPT_width/0.01, 
+                con_LPT_outlet_width/0.01,
                 con_sigma_max_LPTi/1.e9
             });
         }

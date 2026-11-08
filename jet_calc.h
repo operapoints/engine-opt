@@ -7,6 +7,8 @@
 #include <pagmo/types.hpp>
 #include <unordered_map>
 #include <string>
+#include <cmath>
+#include <stdexcept>
 
 
 #include <boost/math/tools/roots.hpp>
@@ -16,7 +18,12 @@ using namespace pagmo;
 struct problem_jet_calc{
     public:
         // Two independent shafts: core compressor/HPT and outer aft fan/LPT.
-        explicit problem_jet_calc(bool aft_fan = false) : aft_fan_(aft_fan) {}
+        explicit problem_jet_calc(bool aft_fan = false, double min_isp = 2870.)
+            : aft_fan_(aft_fan), min_isp_(min_isp) {
+            if (!std::isfinite(min_isp) || min_isp <= 0.)
+                throw std::invalid_argument("Minimum Isp must be finite and positive");
+        }
+        double get_min_isp() const { return min_isp_; }
         bool is_aft_fan() const { return aft_fan_; }
         std::size_t get_design_size() const { return aft_fan_ ? design_size + 8 : design_size; }
         std::pair<vector_double, vector_double> get_physical_bounds() const;
@@ -78,6 +85,7 @@ struct problem_jet_calc{
         std::pair<vector_double, vector_double> get_bounds() const;
     private:
         bool aft_fan_ = false;
+        double min_isp_ = 4750.;
     public:
         double compute_u_a(double m_dot,
                         double rho_t,
