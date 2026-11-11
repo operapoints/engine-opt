@@ -4,7 +4,7 @@ find_package(Pagmo REQUIRED)
 
 add_library(rostack
     src/rostack_utils.cpp
-    src/rostack_physics.cpp
+    src/study_physics.cpp
     src/rostack_optimizer.cpp
 )
 
@@ -33,5 +33,12 @@ add_executable(optimize_stack
     src/demos/optimize_stack.cpp
 )
 target_link_libraries(optimize_stack
+    PRIVATE rostack Pagmo::pagmo
+)
+
+add_executable(reproduce_python_optimizer
+    src/demos/reproduce_python_optimizer.cpp
+)
+target_link_libraries(reproduce_python_optimizer
     PRIVATE rostack Pagmo::pagmo
 )
