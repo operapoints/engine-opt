@@ -105,7 +105,7 @@ vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return aft_fan_ ? 42 : 24;
+    return aft_fan_ ? 43 : 25;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
@@ -239,7 +239,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double con_Diff_C = Diff_C - 0.55;// Lieblein diffusion factor less than 0.55
         // u_Coth_ROT is negative because the angle is defined as positive in the direction opposing rotation
         double beta_Co = (180/M_PI)*std::atan(-u_Coth_ROT/u_Coa);
-        double con_beta_Co = beta_Co - 60; // Compressor blade exit angle below 40 degrees
+        double con_beta_Co = beta_Co - 70.; // Compressor blade exit angle below 40 degrees
         double Ts_3 = T_3 - (u_Co_STAT*u_Co_STAT)/(2*C_pc);
         double Ps_3 = std::pow((Ts_3/T_3),gam_c/(gam_c-1)) * P_3;
         double a_3 = std::pow(gam_c*R*Ts_3, 0.5);
@@ -513,7 +513,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
 
         vector_double ret = {m_total,//-(35*(std::min(F/355.86,1.25))+25*std::min(1.50/(3600/Isp),1.25)+10*std::min(F/(g*m_total*10),1.25)), 
             // 0*con_beta_Ci_tip/70., 
-            // 0*con_beta_Co/70., 
+            con_beta_Co/70., 
             // 0*con_beta_NGV/70., 
             // 0*con_beta_Tim/70., 
             // 0*con_beta_Tom/70., // All the beta constraints are zeroed, so that 
