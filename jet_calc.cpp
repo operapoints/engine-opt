@@ -105,7 +105,7 @@ vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return aft_fan_ ? 43 : 25;
+    return aft_fan_ ? 45 : 26;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
@@ -285,22 +285,6 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         }
         double beta_NGV = (180/M_PI)*std::atan(u_Tith_STAT/u_Tia);
         double con_beta_NGV = beta_NGV - 70;
-        // Phi and psi follow the definitions in Dixon and Hall
-        // It is calculated with reference to the turbine tip inlet speed. This is apparently the 
-        // standard but might apply only to axial turbines where blade speed doesn't vary much axially
-        double R_T_mean = 0.5*(R_Tim+R_Tom); // NOTE: this is an arbitrarily selected "mean" radius to
-        // match the turbine phi and psi estimation to existing empirical efficiency data assuming a constant
-        // meanline radius. Variable radius may cause the map from phi and psi to efficiency to change.
-        double phi_T = u_Tia / (omega*R_T_mean);
-        double psi_T = (C_ph*(-D_T_T)) / (omega*omega*R_T_mean*R_T_mean);//D_T_T is flipped here also to follow work coefficient convention
-        // Phi and psi constraints are for the smith chart for axial gas turbines in dixon and hall.
-        // Smith believed that the losses were proportional to the average kinetic energy in the row,
-        // and correlated this with empirically measured losses.
-        // If this is true, these phi and psi constraints should hold for any topology.
-        // In reality, higher loading will force longer passage length to prevent separation losses
-        // But as long as psi remains on the low side, the topology will be axial and the assumptions of Smith will hold
-        double con_phi_T = std::abs(phi_T - (0.5*(min_phi_T+max_phi_T))) - (0.5*(max_phi_T - min_phi_T));// Flow coefficient in appropriate range
-        double con_psi_T = std::abs(psi_T - (0.5*(min_psi_T+max_psi_T))) - (0.5*(max_psi_T - min_psi_T));// Loading coefficient in appropriate range
         double u_Ti_STAT = std::pow(u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia,0.5);
         double D_Ts_NGV = -1*(u_Ti_STAT*u_Ti_STAT) / (2*C_ph);
         double Ts_Ti = T_4 + D_Ts_NGV;
@@ -311,6 +295,23 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double beta_Tim = (180/M_PI)*std::atan(u_Tith_ROT/u_Tia);
         double con_beta_Tim = std::abs(beta_Tim) - 65;// Turbine inlet angle less than 65 degrees
         double u_Toa = compute_u_a(m_dot * (1+f), P_5/(R*T_5), T_5, 0, gam_h, A_To);
+        // Phi and psi follow the definitions in Dixon and Hall
+        // It is calculated with reference to the turbine tip inlet speed. This is apparently the 
+        // standard but might apply only to axial turbines where blade speed doesn't vary much axially
+        double R_T_mean = 0.5*(R_Tim+R_Tom); // NOTE: this is an arbitrarily selected "mean" radius to
+        // match the turbine phi and psi estimation to existing empirical efficiency data assuming a constant
+        // meanline radius. Variable radius may cause the map from phi and psi to efficiency to change.
+        double phi_T = (0.5*(u_Tia+u_Toa)) / (omega*R_T_mean);
+        double psi_T = (C_ph*(-D_T_T)) / (omega*omega*R_T_mean*R_T_mean);//D_T_T is flipped here also to follow work coefficient convention
+        // Phi and psi constraints are for the smith chart for axial gas turbines in dixon and hall.
+        // Smith believed that the losses were proportional to the average kinetic energy in the row,
+        // and correlated this with empirically measured losses.
+        // If this is true, these phi and psi constraints should hold for any topology.
+        // In reality, higher loading will force longer passage length to prevent separation losses
+        // But as long as psi remains on the low side, the topology will be axial and the assumptions of Smith will hold
+        double con_phi_T = std::abs(phi_T - (0.5*(min_phi_T+max_phi_T))) - (0.5*(max_phi_T - min_phi_T));// Flow coefficient in appropriate range
+        double con_psi_T = std::abs(psi_T - (0.5*(min_psi_T+max_psi_T))) - (0.5*(max_psi_T - min_psi_T));// Loading coefficient in appropriate range
+        double con_k_T = std::abs(u_Toa/u_Tia - 1.) - 0.5;
         if(std::isnan(u_Toa)){
             vector_double ret(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
             return ret;
@@ -352,7 +353,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double phi_LPT = 0., psi_LPT = 0., phi_fan = 0., psi_fan = 0.;
         double spec_speed_fan = 0., spec_dia_fan = 0.;
         double con_LPT_backpres = 0., con_sigma_max_LPTo = 0., con_Mach_fan_tip = 0.;
-        double con_sigma_max_fano = 0., con_phi_LPT = 0., con_psi_LPT = 0.;
+        double con_sigma_max_fano = 0., con_phi_LPT = 0., con_psi_LPT = 0.;double con_k_LPT = 0.;
         double con_cordier_fan = 0., M_LPTo = 0.;
         TurbineSpanMach lpt_mach;
         double u_LPTia = 0., u_LPTith_STAT = 0., Ts_LPTi = 0., Ps_LPTi = 0.;
@@ -422,13 +423,14 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             M_LPTi = std::hypot(u_LPTith_ROT,u_LPTia)/std::sqrt(gam_h*R*Ts_LPTi);
             // Same mean-radius definitions, coefficient ranges and residuals as HPT.
             R_LPT_mean = 0.5*(R_LPTim+R_LPTom);
-            phi_LPT = u_LPTia/(omega_LPT*R_LPT_mean);
-            psi_LPT = C_ph*(-D_T_LPT)/(omega_LPT*omega_LPT*R_LPT_mean*R_LPT_mean);
-            con_phi_LPT = std::abs(phi_LPT-0.5*(min_phi_T+max_phi_T))-0.5*(max_phi_T-min_phi_T);
-            con_psi_LPT = std::abs(psi_LPT-0.5*(min_psi_T+max_psi_T))-0.5*(max_psi_T-min_psi_T);
 
             // LPT outlet, analogous to HPT outlet.
             u_LPToa = compute_u_a(m_dot*(1+f), P_6/(R*T_6), T_6, 0., gam_h, A_LPTo);
+            phi_LPT = (0.5*(u_LPTia+u_LPToa))/(omega_LPT*R_LPT_mean);
+            psi_LPT = C_ph*(-D_T_LPT)/(omega_LPT*omega_LPT*R_LPT_mean*R_LPT_mean);
+            con_phi_LPT = std::abs(phi_LPT-0.5*(min_phi_T+max_phi_T))-0.5*(max_phi_T-min_phi_T);
+            con_psi_LPT = std::abs(psi_LPT-0.5*(min_psi_T+max_psi_T))-0.5*(max_psi_T-min_psi_T);
+            con_k_LPT = std::abs(u_LPToa/u_LPTia - 1.) - 0.5;
             if (!std::isfinite(u_LPToa)) return penalty();
             Ts_LPTo = T_6-u_LPToa*u_LPToa/(2*C_ph);
             M_LPTo = std::hypot(u_LPToa,omega_LPT*R_LPTom)/std::sqrt(gam_h*R*Ts_LPTo);
@@ -446,7 +448,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             con_LPT_width = 0.009-(R_LPTit-R_LPTih);
             con_LPT_outlet_width = 0.009-A_LPTo/(2*M_PI*R_LPTom);
             const double sigma_max_LPTi = 0.5*omega_LPT*omega_LPT*rho_T*
-                                         (R_LPTit*R_LPTit-R_LPTih*R_LPTih);
+                                         (R_fan*R_fan-R_LPTih*R_LPTih);
             con_sigma_max_LPTi = FOS_T*sigma_max_LPTi-sigma_max_T;
             // Use Q/(pi*omega*r^3), consistent with main's Cordier convention.
             phi_fan = (u_fani*A_fan/(M_PI*R_fan*R_fan)) / (omega_LPT*R_fan);
@@ -530,6 +532,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             hpt_mach.outlet_hub-0.9,
             con_phi_T, 
             con_psi_T, 
+            con_k_T/0.5,
             con_T_width/0.01, // con_turbine_diffusion, 
             con_turbine_outlet_width/0.01,
             con_R_Toh/0.005,
@@ -546,6 +549,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                 con_LPT_backpres/101325.,
                 con_phi_LPT,
                 con_psi_LPT,
+                con_k_LPT/0.5,
                 con_Mach_fan_tip, 
                 con_cordier_fan,
                 con_sigma_max_fano/1.e9, 

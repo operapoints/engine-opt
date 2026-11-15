@@ -253,7 +253,7 @@ ParetoPoint run_optimization(bool aft_fan, bool quick, double min_isp,
           if (best != xs.size()) export_candidates.push_back(xs[best]);
       }
   };
-  int n_evolves = quick ? 1 : 8; // Increase this to 10 to get the last 0.1%
+  int n_evolves = quick ? 1 : 16; // Increase this to 10 to get the last 0.1%
   for (int evolve = 0; evolve < n_evolves; evolve++) {
     archi.evolve(1);
     archi.wait_check();
