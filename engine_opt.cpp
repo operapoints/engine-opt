@@ -1,4 +1,5 @@
 #include <chrono>
+#include <array>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -26,6 +27,52 @@
 #include "pareto_export.h"
 
 namespace {
+// Adaptive SFC sweep helpers. Keep all target bookkeeping independent of Pagmo.
+constexpr std::size_t sfc_grid_count = 15;
+constexpr double adaptive_isp_gap_s = 10.0;
+
+struct SweepSamplingRecord {
+    std::string config;
+    double max_sfc = 0.;
+    double min_isp_s = 0.;
+    std::string status = "pending";
+    double achieved_isp_s = std::numeric_limits<double>::quiet_NaN();
+    double mass_kg = std::numeric_limits<double>::quiet_NaN();
+    std::string reason = "not_yet_evaluated";
+};
+
+void write_sampling_csv(const std::string& filename,
+                        const std::vector<SweepSamplingRecord>& records) {
+    std::ofstream out(filename);
+    if (!out) throw std::runtime_error("Cannot write sampling manifest: " + filename);
+    out << std::setprecision(17)
+        << "config,max_sfc,min_isp_s,status,achieved_isp_s,mass_kg,reason\n";
+    // All textual fields below are fixed tokens, not arbitrary user strings.
+    for (const auto& row : records) {
+        out << row.config << ',' << row.max_sfc << ',' << row.min_isp_s << ',' << row.status << ',';
+        if (std::isfinite(row.achieved_isp_s)) out << row.achieved_isp_s;
+        out << ',';
+        if (std::isfinite(row.mass_kg)) out << row.mass_kg;
+        out << ',' << row.reason << '\n';
+    }
+    if (!out) throw std::runtime_error("Failed writing sampling manifest: " + filename);
+}
+
+template <typename Evaluate, typename EndpointsClose, typename Skip>
+void refine_sfc_block(int left, int right, Evaluate& evaluate,
+                      EndpointsClose& endpoints_close, Skip& skip,
+                      bool force_midpoint = false) {
+    if (right-left <= 1) return; // No unknown grid point remains in this block.
+    if (!force_midpoint && endpoints_close(left,right)) {
+        skip(left,right);
+        return;
+    }
+    const int middle = left+(right-left)/2;
+    evaluate(middle); // evaluate() caches each target, including unsuccessful runs.
+    refine_sfc_block(left,middle,evaluate,endpoints_close,skip);
+    refine_sfc_block(middle,right,evaluate,endpoints_close,skip);
+}
+
 struct ConstraintDiagnostics {
     std::size_t violated = 0;
     double max_violation = 0.0; // Excess beyond the configured tolerance.
@@ -124,11 +171,11 @@ void print_objective_agreement(const std::vector<pagmo::vector_double>& fitness,
     std::cout << ", within 0.1% of best=" << a.near_best << '/' << a.count << '\n';
 }
 
-void print_progress_summary(const std::string& label,
+std::size_t print_progress_summary(const std::string& label,
                             const std::vector<pagmo::vector_double>& fitness,
                             const pagmo::problem& p, std::size_t island_count,
                             const std::string& extra = "") {
-    if (fitness.empty()) return;
+    if (fitness.empty()) return 0;
     const auto order = pagmo::sort_population_con(fitness, p.get_nec(), p.get_c_tol());
     const auto best = order[0];
     std::size_t feasible_count = 0;
@@ -155,6 +202,7 @@ void print_progress_summary(const std::string& label,
     }
     print_fitness_diagnostics(best_label, fitness[best], p);
     print_objective_agreement(fitness, p, island_count);
+    return feasible_count; // Reuse the exact displayed count for the bailout.
 }
 } // namespace
 
@@ -250,17 +298,38 @@ ParetoPoint run_optimization(bool aft_fan, bool quick, double min_isp,
                   && pjc.feasibility_f(fs[i])
                   && (best == xs.size() || fs[i][0] < fs[best][0])) best = i;
           }
-          if (best != xs.size()) export_candidates.push_back(xs[best]);
+          if (best != xs.size()) {
+              export_candidates.push_back(xs[best]);
+          }
       }
   };
-  int n_evolves = quick ? 1 : 16; // Increase this to 10 to get the last 0.1%
+  int n_evolves = quick ? 1 : 16; // Full GACO passes; each uses the configured generation budget.
   for (int evolve = 0; evolve < n_evolves; evolve++) {
     archi.evolve(1);
     archi.wait_check();
     retain_island_candidates();
     const auto champions_f = archi.get_champions_f();
-    print_progress_summary("Round " + std::to_string(evolve + 1) + " / "
-                           + std::to_string(n_evolves), champions_f, pjc, champions_f.size());
+    const auto feasible_champion_count = print_progress_summary(
+        "Round " + std::to_string(evolve + 1) + " / " + std::to_string(n_evolves),
+        champions_f, pjc, champions_f.size());
+
+    // Pagmo champions are best-ever individuals and may no longer be members
+    // of the current populations. Preserve their vectors before local polish.
+    if (feasible_champion_count > 0) {
+        const auto round_champions_x = archi.get_champions_x();
+        for (std::size_t i = 0; i < champions_f.size(); ++i) {
+            if (pjc.feasibility_f(champions_f[i]))
+                export_candidates.push_back(round_champions_x[i]);
+        }
+    }
+    // Use exactly the count printed above: only 0/N feasible champions on pass 2.
+    if (evolve + 1 == 2 && feasible_champion_count == 0) {
+        std::cout << "Early bailout: 0/" << champions_f.size()
+                  << " feasible champions after 2 GACO passes. "
+                  << "Skipping remaining GACO passes and COBYLA; this does not prove "
+                  << "physical infeasibility.\n";
+        return ParetoPoint{};
+    }
   }
 
 
@@ -438,7 +507,7 @@ ParetoPoint run_optimization(bool aft_fan, bool quick, double min_isp,
 int main(int argc, char** argv) {
   try {
     bool aft_fan = false, quick = false, sweep = false, explicit_mode = false;
-    bool explicit_isp = false;
+    bool explicit_isp = false, full_grid = false;
     double min_isp = 2870.;
     std::string inspect_file, seed_file, aft_seed, jet_seed, prefix = "engine";
     for (int i = 1; i < argc; ++i) {
@@ -451,6 +520,7 @@ int main(int argc, char** argv) {
             aft_fan = arg == "--aftfan"; explicit_mode = true;
         } else if (arg == "--quick") quick = true;
         else if (arg == "--pareto") sweep = true;
+        else if (arg == "--full-grid") full_grid = true;
         else if (arg == "--output-prefix") prefix = value();
         else if (arg == "--inspect") inspect_file = value();
         else if (arg == "--seed") seed_file = value();
@@ -466,48 +536,118 @@ int main(int argc, char** argv) {
             std::cout << "Single run: engine_opt [--turbojet|--aftfan] [--min-isp seconds] "
                          "[--quick] [--seed physical.txt] [--inspect physical.txt]\n"
                          "Sweep both modes: engine_opt --pareto [--output-prefix engine] "
-                         "[--quick] [--seed-turbojet jet.txt] [--seed-aftfan fan.txt]\n"
+                         "[--quick] [--full-grid] [--seed-turbojet jet.txt] [--seed-aftfan fan.txt]\n"
+                         "Default sweep: endpoints + midpoint, then adaptive 10 s achieved-Isp refinement.\n"
+                         "--full-grid evaluates all targets for comparison.\n"
+                         "Pareto SFC grid: 0.70 through 1.40 inclusive, step 0.05; Isp=3600/SFC, both modes.\n"
                          "Physical files contain 12 (turbojet) or 20 (aftfan) SI numbers.\n";
             return 0;
         } else throw std::invalid_argument("Unknown option: " + arg);
     }
     if (!sweep) {
-        if (!aft_seed.empty() || !jet_seed.empty() || prefix != "engine")
-            throw std::invalid_argument("Mode-specific seeds and output prefix require --pareto");
+        if (!aft_seed.empty() || !jet_seed.empty() || prefix != "engine" || full_grid)
+            throw std::invalid_argument("Mode-specific seeds, output prefix and --full-grid require --pareto");
         const auto result = run_optimization(aft_fan, quick, min_isp, inspect_file, seed_file);
         return inspect_file.empty() && !valid_point(result) ? 1 : 0;
     }
     if (explicit_mode || explicit_isp || !inspect_file.empty() || !seed_file.empty())
-        throw std::invalid_argument("--pareto runs both fixed grids; use mode-specific seed options");
+        throw std::invalid_argument("--pareto samples both modes; use mode-specific seed options");
     if (prefix.empty()) throw std::invalid_argument("Output prefix must not be empty");
     std::vector<ParetoPoint> points;
-    // Header-only files are intentional when no feasible designs have been found.
-    // Checkpoint after every threshold, so lengthy sweeps retain completed work.
+    std::vector<SweepSamplingRecord> sampling;
+    sampling.reserve(2*sfc_grid_count);
+    for (bool fan : {true,false}) {
+        for (std::size_t index = 0; index < sfc_grid_count; ++index) {
+            const double max_sfc = (70+5*index)/100.0;
+            SweepSamplingRecord row;
+            row.config = fan ? "aftfan" : "turbojet";
+            row.max_sfc = max_sfc;
+            row.min_isp_s = 3600.0/max_sfc;
+            sampling.push_back(row);
+        }
+    }
+    // Checkpoint feasible results and sampling status after every evaluated/skipped block.
     const auto checkpoint = [&]() {
         write_pareto_csv(prefix + "_sweep.csv", points, false);
         write_pareto_csv(prefix + "_pareto.csv", points, true);
+        write_sampling_csv(prefix + "_sampling.csv", sampling);
     };
     checkpoint();
     std::size_t failed_runs = 0;
     for (bool fan : {true, false}) {
-        const std::vector<double> thresholds = fan
-            ? std::vector<double>{3628., 4000., 4500., 4750., 5000., 5250.}
-            : std::vector<double>{2429., 2600., 2800., 3000., 3100., 3240.};
-        for (double threshold : thresholds) {
-            std::cout << "\n=== " << (fan ? "aftfan" : "turbojet")
-                      << ": minimum Isp " << threshold << " s ===\n";
+        const std::size_t offset = fan ? 0 : sfc_grid_count;
+        std::array<ParetoPoint,sfc_grid_count> cache{};
+        std::array<bool,sfc_grid_count> attempted{};
+        const auto evaluate = [&](int index) {
+            if (attempted[index]) return;
+            attempted[index] = true;
+            auto& row = sampling[offset+index];
+            row.status = "running";
+            row.reason = "search_started";
+            checkpoint();
+            std::cout << "\n=== " << row.config << ": maximum SFC " << row.max_sfc
+                      << " (minimum Isp " << row.min_isp_s << " s) ===\n";
             try {
-                const auto point = run_optimization(fan, quick, threshold, "",
-                                                    fan ? aft_seed : jet_seed);
-                if (valid_point(point)) points.push_back(point);
-                else std::cerr << "No feasible design found; no CSV row written.\n";
+                cache[index] = run_optimization(fan,quick,row.min_isp_s,"",
+                                                fan ? aft_seed : jet_seed);
+                if (valid_point(cache[index])) {
+                    points.push_back(cache[index]);
+                    row.status = "feasible";
+                    row.reason = "optimized";
+                    row.achieved_isp_s = cache[index].isp_s;
+                    row.mass_kg = cache[index].mass_kg;
+                } else {
+                    row.status = "no_feasible";
+                    row.reason = "no_feasible_result";
+                    std::cerr << "No feasible design found; no CSV result row written.\n";
+                }
             } catch (const std::exception& e) {
                 ++failed_runs;
-                std::cerr << "Threshold run failed; no CSV row written: " << e.what() << '\n';
+                row.status = "failed";
+                row.reason = "optimizer_exception";
+                std::cerr << "Threshold run failed; no CSV result row written: " << e.what() << '\n';
             }
             checkpoint();
+        };
+        const auto endpoints_close = [&](int left, int right) {
+            // An unsuccessful search is not evidence of a plateau or infeasibility.
+            return valid_point(cache[left]) && valid_point(cache[right])
+                && std::abs(cache[left].isp_s-cache[right].isp_s) <= adaptive_isp_gap_s;
+        };
+        const auto skip = [&](int left, int right) {
+            for (int index = left+1; index < right; ++index) {
+                if (!attempted[index]) {
+                    auto& row = sampling[offset+index];
+                    row.status = "skipped";
+                    row.reason = "endpoint_isp_gap_le_10s";
+                }
+            }
+            std::cout << "Adaptive skip: " << (fan ? "aftfan" : "turbojet")
+                      << " SFC interval [" << sampling[offset+left].max_sfc << ", "
+                      << sampling[offset+right].max_sfc << "]; endpoint achieved-Isp gap="
+                      << std::abs(cache[left].isp_s-cache[right].isp_s) << " s <= "
+                      << adaptive_isp_gap_s << " s.\n";
+            checkpoint();
+        };
+        if (full_grid) {
+            for (int index = 0; index < static_cast<int>(sfc_grid_count); ++index) evaluate(index);
+        } else {
+            evaluate(0);
+            evaluate(static_cast<int>(sfc_grid_count)-1);
+            // Always evaluate the initial midpoint before deciding which halves to refine.
+            refine_sfc_block(0,static_cast<int>(sfc_grid_count)-1,
+                             evaluate,endpoints_close,skip,true);
         }
     }
+    const auto evaluated_count = std::count_if(sampling.begin(),sampling.end(),
+        [](const SweepSamplingRecord& row) {
+            return row.status == "feasible" || row.status == "no_feasible" || row.status == "failed";
+        });
+    const auto skipped_count = std::count_if(sampling.begin(),sampling.end(),
+        [](const SweepSamplingRecord& row) { return row.status == "skipped"; });
+    std::cout << "Evaluated " << evaluated_count << '/' << sampling.size()
+              << " SFC targets; skipped " << skipped_count << " adaptively. Status: "
+              << prefix << "_sampling.csv\n";
     std::cout << "Wrote " << points.size() << " feasible threshold results to "
               << prefix << "_sweep.csv and nondominated subsets to " << prefix << "_pareto.csv\n";
     return points.empty() || failed_runs ? 1 : 0;

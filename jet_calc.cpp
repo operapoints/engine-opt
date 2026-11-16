@@ -477,7 +477,9 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             * rho_C; // volume in m^3 -> mass in kg
         double m_Compressor = std::max(m_Compressor_conical,m_Compressor_prismatic);
         double m_Turbine_conical = std::abs((M_PI*(R_Tih*R_Tih*R_Tih - R_Toh*R_Toh*R_Toh)))*(rho_T/3);
-        double m_Turbine_prismatic = (R_Tot - R_Toh)*M_PI*R_Tot*R_Tot
+        // Assume mass is prop to a disc of the same height as the axial blade length
+        // Axial blade length guesses blade AR about 1.5 referenced to the avg blade passage
+        double m_Turbine_prismatic = 0.67*0.5*((R_Tot - R_Toh)+(R_Tit-R_Tih))*M_PI*R_Tot*R_Tot
             * rho_T; // volume in m^3 -> mass in kg
         double m_Turbine = std::max(m_Turbine_conical, m_Turbine_prismatic);
         // Diffuser mass proportional to spec speed and component radius squared
@@ -496,7 +498,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double m_Combustor = 2*M_PI*(0.5*R_overall + 0.8*R_overall)*len_Combustor*0.00065*8000;
         
         double m_LPT_conical = std::abs(M_PI*(std::pow(R_LPTih,3)-std::pow(R_LPToh,3)))*rho_T/3.;
-        double m_LPT_prismatic = (R_LPTot-R_LPToh)*M_PI*R_LPTot*R_LPTot*rho_T;
+        double m_LPT_prismatic = 0.67 * ((R_LPTot-R_LPToh)+(R_LPTih - R_LPToh))*M_PI*R_LPTot*R_LPTot*rho_T;
         double m_LPT = std::max(m_LPT_conical,m_LPT_prismatic);
         double m_LPTNGV = (0.2885/(0.0315287*0.0315287))*R_LPTit*R_LPTit;
         double m_transition = M_PI*(std::abs(R_LPTit*R_LPTit - R_Tot*R_Tot)+std::abs(R_LPTih*R_LPTih - R_Toh*R_Toh))*1.414*0.0015*rho_T;
