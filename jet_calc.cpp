@@ -13,6 +13,25 @@
 using namespace pagmo;
 
 namespace {
+// Fractions of compressor inlet AIR flow, not air-plus-fuel flow.
+// LP circuit is disabled in turbojet mode. Set all three to zero for regression.
+constexpr double hp_bearing_bleed = 0.02;
+constexpr double lp_forward_bearing_bleed = 0.01;
+constexpr double lp_rear_bearing_bleed = 0.01;
+
+// Perfect total-enthalpy mixing with constant species heat capacities and common R.
+// Return air remains at T3: bearing heat pickup/windage is not included.
+struct CoolingMixture { double mass, cp, gamma, temperature; };
+CoolingMixture mix_bearing_return(double hot_mass, double hot_cp, double hot_T,
+                                  double coolant_mass, double coolant_cp,
+                                  double coolant_T, double gas_R) {
+    const double mass = hot_mass+coolant_mass;
+    const double capacity = hot_mass*hot_cp+coolant_mass*coolant_cp;
+    const double cp = capacity/mass;
+    return {mass,cp,cp/(cp-gas_R),
+            (hot_mass*hot_cp*hot_T+coolant_mass*coolant_cp*coolant_T)/capacity};
+}
+
 struct TurbineSpanMach {
     double inlet_hub = 0., inlet_shroud = 0.;
     double ngv_hub = 0., ngv_shroud = 0.;
@@ -25,7 +44,8 @@ bool turbine_span_mach(TurbineSpanMach& mach, double omega,
                        double r_ih, double r_it, double r_oh, double r_ot,
                        double c_theta_mean, double c_axial_in, double c_axial_out,
                        double T_total_in, double T_total_out, double cp,
-                       double gamma, double gas_R) {
+                       double gamma, double gas_R, double c_axial_ngv,
+                       double T_ngv, double cp_ngv, double gamma_ngv) {
     if (!(r_ih > 0. && r_it > r_ih && r_oh > 0. && r_ot > r_oh)) return false;
     const double vortex = 0.5*(r_ih+r_it)*c_theta_mean;
     const auto inlet_mach = [&](double r, double& absolute_mach) {
@@ -42,6 +62,15 @@ bool turbine_span_mach(TurbineSpanMach& mach, double omega,
     const double a_out = std::sqrt(gamma*gas_R*ts_out);
     mach.inlet_hub = inlet_mach(r_ih,mach.ngv_hub);
     mach.inlet_shroud = inlet_mach(r_it,mach.ngv_shroud);
+    // NGV flow is evaluated BEFORE the bearing return; rotor inlet is AFTER.
+    const auto ngv_mach = [&](double r) {
+        const double speed2 = c_axial_ngv*c_axial_ngv+(vortex/r)*(vortex/r);
+        const double ts = T_ngv-speed2/(2*cp_ngv);
+        return ts>0. ? std::sqrt(speed2/(gamma_ngv*gas_R*ts))
+                     : std::numeric_limits<double>::quiet_NaN();
+    };
+    mach.ngv_hub = ngv_mach(r_ih);
+    mach.ngv_shroud = ngv_mach(r_it);
     mach.outlet_hub = std::hypot(c_axial_out,omega*r_oh)/a_out;
     mach.outlet_shroud = std::hypot(c_axial_out,omega*r_ot)/a_out;
     return std::isfinite(mach.inlet_hub) && std::isfinite(mach.inlet_shroud) &&
@@ -71,7 +100,8 @@ void evaluate_turbine_blading(std::unordered_map<std::string,double>& out,
                              const std::string& stage, double omega,
                              double r_ih, double r_it, double r_oh, double r_ot,
                              double c_theta_mean, double c_axial_in, double c_axial_out,
-                             double T_total_in, double cp) {
+                             double T_total_in, double cp, double c_axial_ngv,
+                             double T_ngv, double cp_ngv) {
     const double r_mean = 0.5*(r_ih+r_it);
     const double vortex = r_mean*c_theta_mean;
     bool valid = true;
@@ -82,14 +112,17 @@ void evaluate_turbine_blading(std::unordered_map<std::string,double>& out,
         if (!(r_in>0. && r_out>0.)) { valid=false; continue; }
         const double swirl = vortex/r_in;
         const double ts = T_total_in-(swirl*swirl+c_axial_in*c_axial_in)/(2*cp);
-        if (!(ts>0.)) valid=false;
+        const double ts_ngv = T_ngv-(swirl*swirl+c_axial_ngv*c_axial_ngv)/(2*cp_ngv);
+        if (!(ts>0. && ts_ngv>0.)) valid=false;
         const auto key = [&](const std::string& units, const std::string& name) {
             return units+" "+stage+" "+name+" ("+span+")";
         };
         out[key("[m/s]","NGV exit swirl")] = swirl;
-        out[key("[m/s]","NGV exit axial velocity")] = c_axial_in;
-        out[key("[K]","NGV exit static temperature")] = ts;
-        out[key("[deg]","NGV exit angle")] = 180./M_PI*std::atan2(swirl,c_axial_in);
+        out[key("[m/s]","NGV exit axial velocity")] = c_axial_ngv;
+        out[key("[K]","NGV exit static temperature")] = ts_ngv;
+        out[key("[m/s]","rotor inlet axial velocity")] = c_axial_in;
+        out[key("[K]","rotor inlet static temperature")] = ts;
+        out[key("[deg]","NGV exit angle")] = 180./M_PI*std::atan2(swirl,c_axial_ngv);
         out[key("[deg]","rotor inlet angle")] = 180./M_PI*std::atan2(swirl-omega*r_in,c_axial_in);
         out[key("[deg]","rotor outlet angle")] = 180./M_PI*std::atan2(omega*r_out,c_axial_out);
     }
@@ -266,35 +299,62 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double beta_Di_x = (180/M_PI)*std::atan(u_Coth_x_STAT / u_Coa_x);
         #endif
 
-        // Combustor
-        double f = (C_ph*T_4 - C_pc*T_3)/(h_ker - C_ph*T_4);
+        // Bearing coolant is unburned compressor-discharge/plenum air at T3,P3.
+        // All coolant bypasses combustion; the whole inlet flow was compressed.
+        const double b_HP = hp_bearing_bleed;
+        const double b_LPf = aft_fan_ ? lp_forward_bearing_bleed : 0.;
+        const double b_LPr = aft_fan_ ? lp_rear_bearing_bleed : 0.;
+        const double combustor_air_fraction = 1.-b_HP-b_LPf-b_LPr;
+        if (!(b_HP>=0. && b_LPf>=0. && b_LPr>=0. && combustor_air_fraction>0.))
+            return penalty();
+        const double m_HP_return = m_dot*b_HP;
+        const double m_LPf_return = m_dot*b_LPf;
+        const double m_LPr_return = m_dot*b_LPr;
+        // T4 is hot combustor total temperature BEFORE the HP return.
+        // f remains fuel flow / TOTAL compressor inlet air flow.
+        double f = combustor_air_fraction*(C_ph*T_4 - C_pc*T_3)/(h_ker - C_ph*T_4);
         if (!(f > 0. && std::isfinite(f))) return penalty();
         double P_4 = 0.94*P_3;
+        const double m_hot = m_dot*(combustor_air_fraction+f);
+        // Post-NGV mixing: user assumes sufficient injected angular momentum
+        // to preserve NGV swirl, with no torque debit. Axial momentum/mixing
+        // loss is not solved: retain mainstream TOTAL pressure across mixers.
+        const auto hpt_mix = mix_bearing_return(m_hot,C_ph,T_4,
+                                                m_HP_return,C_pc,T_3,R);
+        const double m_HPT = hpt_mix.mass;
+        const double cp_HPT = hpt_mix.cp, gamma_HPT = hpt_mix.gamma;
+        const double T_HPTin = hpt_mix.temperature;
+        if (!(T_HPTin>0. && cp_HPT>R)) return penalty();
         // Turbine
-        double D_T_T = -(P_spC/(C_ph*(1+f)));
-        double T_5 = T_4+D_T_T;
-        double P_5 = P_4*std::pow((T_4+(D_T_T/eta_T))/T_4,(gam_h/(gam_h-1)));
+        double D_T_T = -(m_dot*P_spC/(cp_HPT*m_HPT));
+        double T_5 = T_HPTin+D_T_T;
+        double P_5 = P_4*std::pow((T_HPTin+(D_T_T/eta_T))/T_HPTin,(gamma_HPT/(gamma_HPT-1)));
         // Turbine constraints
         double A_Ti = M_PI*(R_Tit*R_Tit - R_Tih*R_Tih);
         double R_Tim = 0.5*(R_Tit+R_Tih);
-        double u_Tith_STAT = (C_ph*(-1*D_T_T))/(omega*R_Tim);// Since D_T_T is negative, it has to be flipped to calculate the absolute NGV exit u_th
-        double u_Tia = compute_u_a(m_dot*(1+f),P_4/(R*T_4), T_4, u_Tith_STAT, gam_h, A_Ti);
+        double u_Tith_STAT = (cp_HPT*(-1*D_T_T))/(omega*R_Tim);// Since D_T_T is negative, it has to be flipped to calculate the absolute NGV exit u_th
+        double u_Tia = compute_u_a(m_HPT,P_4/(R*T_HPTin), T_HPTin, u_Tith_STAT, gamma_HPT, A_Ti);
         if(std::isnan(u_Tia)){
             vector_double ret(1+static_cast<int>(get_nec())+static_cast<int>(get_nic()),1e+6);
             return ret;
         }
-        double beta_NGV = (180/M_PI)*std::atan(u_Tith_STAT/u_Tia);
+        const double u_Tia_NGV = compute_u_a(m_hot,P_4/(R*T_4),T_4,
+                                              u_Tith_STAT,gam_h,A_Ti);
+        if (!std::isfinite(u_Tia_NGV)) return penalty();
+        double beta_NGV = (180/M_PI)*std::atan(u_Tith_STAT/u_Tia_NGV);
         double con_beta_NGV = beta_NGV - 70;
         double u_Ti_STAT = std::pow(u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia,0.5);
-        double D_Ts_NGV = -1*(u_Ti_STAT*u_Ti_STAT) / (2*C_ph);
-        double Ts_Ti = T_4 + D_Ts_NGV;
-        double Ps_Ti = P_4 * std::pow(Ts_Ti/T_4, (gam_h)/(gam_h-1));
-        double M_NGVo = std::pow((u_Tith_STAT*u_Tith_STAT+u_Tia*u_Tia)/(gam_h*R*Ts_Ti),0.5);
+        const double D_Ts_HPT_mixed_kinetic = -u_Ti_STAT*u_Ti_STAT/(2*cp_HPT);
+        double Ts_Ti = T_HPTin + D_Ts_HPT_mixed_kinetic;
+        double Ps_Ti = P_4 * std::pow(Ts_Ti/T_HPTin, (gamma_HPT)/(gamma_HPT-1));
+        const double Ts_HPTngv = T_4-(u_Tith_STAT*u_Tith_STAT+u_Tia_NGV*u_Tia_NGV)/(2*C_ph);
+        if (!(Ts_HPTngv>0. && Ts_Ti>0.)) return penalty();
+        double M_NGVo = std::hypot(u_Tith_STAT,u_Tia_NGV)/std::sqrt(gam_h*R*Ts_HPTngv);
         double u_Tith_ROT = u_Tith_STAT - omega*R_Tim;
-        double M_Ti = std::pow((u_Tith_ROT*u_Tith_ROT + u_Tia*u_Tia)/(gam_h*R*Ts_Ti),0.5);
+        double M_Ti = std::pow((u_Tith_ROT*u_Tith_ROT + u_Tia*u_Tia)/(gamma_HPT*R*Ts_Ti),0.5);
         double beta_Tim = (180/M_PI)*std::atan(u_Tith_ROT/u_Tia);
         double con_beta_Tim = std::abs(beta_Tim) - 65;// Turbine inlet angle less than 65 degrees
-        double u_Toa = compute_u_a(m_dot * (1+f), P_5/(R*T_5), T_5, 0, gam_h, A_To);
+        double u_Toa = compute_u_a(m_HPT, P_5/(R*T_5), T_5, 0, gamma_HPT, A_To);
         // Phi and psi follow the definitions in Dixon and Hall
         // It is calculated with reference to the turbine tip inlet speed. This is apparently the 
         // standard but might apply only to axial turbines where blade speed doesn't vary much axially
@@ -302,7 +362,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         // match the turbine phi and psi estimation to existing empirical efficiency data assuming a constant
         // meanline radius. Variable radius may cause the map from phi and psi to efficiency to change.
         double phi_T = (0.5*(u_Tia+u_Toa)) / (omega*R_T_mean);
-        double psi_T = (C_ph*(-D_T_T)) / (omega*omega*R_T_mean*R_T_mean);//D_T_T is flipped here also to follow work coefficient convention
+        double psi_T = (cp_HPT*(-D_T_T)) / (omega*omega*R_T_mean*R_T_mean);//D_T_T is flipped here also to follow work coefficient convention
         // Phi and psi constraints are for the smith chart for axial gas turbines in dixon and hall.
         // Smith believed that the losses were proportional to the average kinetic energy in the row,
         // and correlated this with empirically measured losses.
@@ -320,15 +380,17 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double con_beta_Tom = beta_Tom - 65; // Turbine outlet meridional blade angle less than 65 degrees - this shouldn't be active
         double con_T_width = 0.009 - (R_Tit - R_Tih);// Turbine inlet annulus width greater than 9mm
         // double con_turbine_diffusion = u_Tia - u_Toa; // Flow must accelerate through turbine to avoid separation
-        double Ts_To = T_5 - (u_Toa*u_Toa)/(2*C_ph);
+        double Ts_To = T_5 - (u_Toa*u_Toa)/(2*cp_HPT);
         double con_turbine_outlet_width = 0.009 - A_To/(2*M_PI*R_Tom); // Turbine outlet width more than 9mm
         double R_Tot = R_Tom + A_To/(4*M_PI*R_Tom);
-        double M_Tom = std::pow((u_Toa*u_Toa + omega*omega*R_Tom*R_Tom)/(gam_h*R*Ts_To),0.5);
-        double M_Toa = u_Toa / std::pow((gam_h*R*Ts_To),0.5);
+        double M_Tom = std::pow((u_Toa*u_Toa + omega*omega*R_Tom*R_Tom)/(gamma_HPT*R*Ts_To),0.5);
+        double M_Toa = u_Toa / std::pow((gamma_HPT*R*Ts_To),0.5);
 
+        // Effective mixed-stream reaction: coolant dilution is NOT rotor expansion.
+        // Reference is mixed rotor-inlet total enthalpy to rotor-outlet static.
         // Degree of reaction calculation
-        double D_Ts_T = Ts_To - T_4;
-        double DoR = 1 - (D_Ts_NGV/D_Ts_T);
+        double D_Ts_T = Ts_To - T_HPTin;
+        double DoR = 1 - (D_Ts_HPT_mixed_kinetic/D_Ts_T);
         double con_DoR = std::abs(0.4 - DoR) - 0.1; // Degree of reaction of turbine between 0.3 and 0.5
         // TODO: Change this back when done
         double sigma_max_Ti = 0.5*omega*omega*rho_T*(R_Tit*R_Tit - R_Tih*R_Tih);
@@ -339,7 +401,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double con_sigma_max_To = FOS_T * sigma_max_To - sigma_max_T;// FOS at compressor inlet blade root
         TurbineSpanMach hpt_mach;
         if (!turbine_span_mach(hpt_mach,omega,R_Tih,R_Tit,R_Toh,R_Tot,
-                              u_Tith_STAT,u_Tia,u_Toa,T_4,T_5,C_ph,gam_h,R))
+                              u_Tith_STAT,u_Tia,u_Toa,T_HPTin,T_5,cp_HPT,gamma_HPT,R,u_Tia_NGV,T_4,C_ph,gam_h))
             return penalty();
         // Opposing-sign hub/shroud migration, allowing a stationary boundary.
         // Normalize the product (m^2) by a 10 mm reference length squared.
@@ -348,6 +410,9 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double con_turbine_hub_geom = R_Toh - R_Tih;
 
         double T_6 = T_5, P_6 = P_5;
+        double m_LPT_flow = m_HPT, cp_LPT = cp_HPT, gamma_LPT = gamma_HPT;
+        double T_LPTin = T_5, u_LPTia_NGV = 0.;
+        double T_nozzle = T_5, cp_nozzle = cp_HPT, gamma_nozzle = gamma_HPT;
         double R_LPTot = 0., R_LPToh = 0., R_fan = 0., m_dot_fan = 0.;
         double D_T_fan = 0., T_fano = 0., P_fano = 0., F_fan = 0., u_LPToa = 0.;
         double phi_LPT = 0., psi_LPT = 0., phi_fan = 0., psi_fan = 0.;
@@ -364,10 +429,17 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double con_LPT_width = 0., con_LPT_outlet_width = 0., con_sigma_max_LPTi = 0.;
         if (aft_fan_) {
             // LPT: same inlet/rotor/outlet convention as HPT; zero exit swirl.
+            const auto lpt_mix = mix_bearing_return(m_HPT,cp_HPT,T_5,
+                                                    m_LPf_return,C_pc,T_3,R);
+            m_LPT_flow = lpt_mix.mass;
+            cp_LPT = lpt_mix.cp;
+            gamma_LPT = lpt_mix.gamma;
+            T_LPTin = lpt_mix.temperature;
+            if (!(T_LPTin>0. && cp_LPT>R)) return penalty();
 
-            T_6 = T_5 + D_T_LPT;
-            if (!(T_6 > 0. && T_5 + D_T_LPT/eta_T > 0.)) return penalty();
-            P_6 = P_5*std::pow((T_5+(D_T_LPT/eta_T))/T_5,(gam_h/(gam_h-1)));
+            T_6 = T_LPTin + D_T_LPT;
+            if (!(T_6 > 0. && T_LPTin + D_T_LPT/eta_T > 0.)) return penalty();
+            P_6 = P_5*std::pow((T_LPTin+(D_T_LPT/eta_T))/T_LPTin,(gamma_LPT/(gamma_LPT-1)));
             con_LPT_backpres = Ps_6 - P_6;
             double Ts_fani = T_0 - ((u_fani*u_fani)/(2*C_pc));
             double Ps_fani = P_0 * std::pow((Ts_fani/T_0),(gam_c/(gam_c-1)));
@@ -386,7 +458,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                                                 /(gam_c*R*Ts_fani)) - M_max_fan;
             double A_fan = M_PI*(R_fan*R_fan - R_LPTot*R_LPTot);
             m_dot_fan = A_fan * u_fani* rhos_fani;
-            D_T_fan = -(C_ph*m_dot*(1+f)*D_T_LPT)/(C_pc*m_dot_fan);
+            D_T_fan = -(cp_LPT*m_LPT_flow*D_T_LPT)/(C_pc*m_dot_fan);
             T_fano = D_T_fan+T_0;
             P_fano = P_0*std::pow((T_0+eta_fan*D_T_fan)/T_0,(gam_c/(gam_c-1)));
             // Architecture assumption: an independently supported outer ring carries
@@ -408,42 +480,48 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             // LPT inlet (NGV exit), analogous to HPT inlet.
             const double A_LPTi = M_PI*(R_LPTit*R_LPTit-R_LPTih*R_LPTih);
             const double R_LPTim = 0.5*(R_LPTit+R_LPTih);
-            u_LPTith_STAT = C_ph*(-D_T_LPT)/(omega_LPT*R_LPTim);
-            u_LPTia = compute_u_a(m_dot*(1+f), P_5/(R*T_5), T_5,
-                                  u_LPTith_STAT, gam_h, A_LPTi);
+            u_LPTith_STAT = cp_LPT*(-D_T_LPT)/(omega_LPT*R_LPTim);
+            u_LPTia = compute_u_a(m_LPT_flow, P_5/(R*T_LPTin), T_LPTin,
+                                  u_LPTith_STAT, gamma_LPT, A_LPTi);
             if (!std::isfinite(u_LPTia)) return penalty();
-            beta_LPTNGV = 180./M_PI*std::atan2(u_LPTith_STAT,u_LPTia);
+            u_LPTia_NGV = compute_u_a(m_HPT,P_5/(R*T_5),T_5,
+                                        u_LPTith_STAT,gamma_HPT,A_LPTi);
+            if (!std::isfinite(u_LPTia_NGV)) return penalty();
+            beta_LPTNGV = 180./M_PI*std::atan2(u_LPTith_STAT,u_LPTia_NGV);
             const double u_LPTi_STAT = std::hypot(u_LPTith_STAT,u_LPTia);
-            const double D_Ts_LPTNGV = -u_LPTi_STAT*u_LPTi_STAT/(2*C_ph);
-            Ts_LPTi = T_5+D_Ts_LPTNGV;
-            Ps_LPTi = P_5*std::pow(Ts_LPTi/T_5,gam_h/(gam_h-1));
-            M_LPTNGVo = u_LPTi_STAT/std::sqrt(gam_h*R*Ts_LPTi);
+            const double D_Ts_LPT_mixed_kinetic = -u_LPTi_STAT*u_LPTi_STAT/(2*cp_LPT);
+            Ts_LPTi = T_LPTin+D_Ts_LPT_mixed_kinetic;
+            Ps_LPTi = P_5*std::pow(Ts_LPTi/T_LPTin,gamma_LPT/(gamma_LPT-1));
+            const double Ts_LPTngv = T_5-(u_LPTia_NGV*u_LPTia_NGV+
+                                        u_LPTith_STAT*u_LPTith_STAT)/(2*cp_HPT);
+            if (!(Ts_LPTngv>0. && Ts_LPTi>0.)) return penalty();
+            M_LPTNGVo = std::hypot(u_LPTia_NGV,u_LPTith_STAT)/std::sqrt(gamma_HPT*R*Ts_LPTngv);
             const double u_LPTith_ROT = u_LPTith_STAT-omega_LPT*R_LPTim;
             beta_LPTim = 180./M_PI*std::atan2(u_LPTith_ROT,u_LPTia);
-            M_LPTi = std::hypot(u_LPTith_ROT,u_LPTia)/std::sqrt(gam_h*R*Ts_LPTi);
+            M_LPTi = std::hypot(u_LPTith_ROT,u_LPTia)/std::sqrt(gamma_LPT*R*Ts_LPTi);
             // Same mean-radius definitions, coefficient ranges and residuals as HPT.
             R_LPT_mean = 0.5*(R_LPTim+R_LPTom);
 
             // LPT outlet, analogous to HPT outlet.
-            u_LPToa = compute_u_a(m_dot*(1+f), P_6/(R*T_6), T_6, 0., gam_h, A_LPTo);
+            u_LPToa = compute_u_a(m_LPT_flow, P_6/(R*T_6), T_6, 0., gamma_LPT, A_LPTo);
             phi_LPT = (0.5*(u_LPTia+u_LPToa))/(omega_LPT*R_LPT_mean);
-            psi_LPT = C_ph*(-D_T_LPT)/(omega_LPT*omega_LPT*R_LPT_mean*R_LPT_mean);
+            psi_LPT = cp_LPT*(-D_T_LPT)/(omega_LPT*omega_LPT*R_LPT_mean*R_LPT_mean);
             con_phi_LPT = std::abs(phi_LPT-0.5*(min_phi_T+max_phi_T))-0.5*(max_phi_T-min_phi_T);
             con_psi_LPT = std::abs(psi_LPT-0.5*(min_psi_T+max_psi_T))-0.5*(max_psi_T-min_psi_T);
             con_k_LPT = std::abs(u_LPToa/u_LPTia - 1.) - 0.5;
             if (!std::isfinite(u_LPToa)) return penalty();
-            Ts_LPTo = T_6-u_LPToa*u_LPToa/(2*C_ph);
-            M_LPTo = std::hypot(u_LPToa,omega_LPT*R_LPTom)/std::sqrt(gam_h*R*Ts_LPTo);
+            Ts_LPTo = T_6-u_LPToa*u_LPToa/(2*cp_LPT);
+            M_LPTo = std::hypot(u_LPToa,omega_LPT*R_LPTom)/std::sqrt(gamma_LPT*R*Ts_LPTo);
             if (!turbine_span_mach(lpt_mach,omega_LPT,R_LPTih,R_LPTit,R_LPToh,R_LPTot,
-                                  u_LPTith_STAT,u_LPTia,u_LPToa,T_5,T_6,C_ph,gam_h,R))
+                                  u_LPTith_STAT,u_LPTia,u_LPToa,T_LPTin,T_6,cp_LPT,gamma_LPT,R,u_LPTia_NGV,T_5,cp_HPT,gamma_HPT))
                 return penalty();
             con_LPT_migration = (R_LPTih-R_LPToh)*(R_LPTit-R_LPTot)/(0.01*0.01);
-            M_LPToa = u_LPToa/std::sqrt(gam_h*R*Ts_LPTo);
+            M_LPToa = u_LPToa/std::sqrt(gamma_LPT*R*Ts_LPTo);
             beta_LPTom = 180./M_PI*std::atan2(omega_LPT*R_LPTom,u_LPToa);
             // Angle limits remain diagnostic-only for both turbines, as in main.
-            // Same total-to-static reference as HPT: negligible stator-entry KE.
-            const double D_Ts_LPT = Ts_LPTo-T_5;
-            DoR_LPT = 1.-D_Ts_LPTNGV/D_Ts_LPT;
+            // Same effective mixed-stream total-to-static reaction reference as HPT.
+            const double D_Ts_LPT = Ts_LPTo-T_LPTin;
+            DoR_LPT = 1.-D_Ts_LPT_mixed_kinetic/D_Ts_LPT;
             con_DoR_LPT = std::abs(0.4-DoR_LPT)-0.1;
             con_LPT_width = 0.009-(R_LPTit-R_LPTih);
             con_LPT_outlet_width = 0.009-A_LPTo/(2*M_PI*R_LPTom);
@@ -462,10 +540,18 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
 
         }
 
+        // Rear LP return bypasses BOTH rotors and joins before the core nozzle.
+        // T6 remains the unmixed LPT discharge temperature in inspection output.
+        const auto nozzle_mix = mix_bearing_return(m_LPT_flow,cp_LPT,T_6,
+                                                   m_LPr_return,C_pc,T_3,R);
+        T_nozzle = nozzle_mix.temperature;
+        cp_nozzle = nozzle_mix.cp;
+        gamma_nozzle = nozzle_mix.gamma;
+        if (!(T_nozzle>0. && cp_nozzle>R)) return penalty();
         // Nozzle: station 6 for turbojet, station 7 after aft-fan LPT.
-        double Ts_6 = T_6*std::pow(Ps_6/P_6,(gam_h-1)/gam_h);
-        double a_6 = std::pow(gam_h*R*Ts_6,0.5);
-        double u_6 = a_6*std::pow((2/(gam_h-1))*(std::pow((P_6/Ps_6),(gam_h-1)/gam_h)-1),0.5);
+        double Ts_6 = T_nozzle*std::pow(Ps_6/P_6,(gamma_nozzle-1)/gamma_nozzle);
+        double a_6 = std::pow(gamma_nozzle*R*Ts_6,0.5);
+        double u_6 = a_6*std::pow((2/(gamma_nozzle-1))*(std::pow((P_6/Ps_6),(gamma_nozzle-1)/gamma_nozzle)-1),0.5);
         double M_6 = u_6/a_6;
         double R_6 = std::pow((m_dot*(1+f))/(u_6*(Ps_0/(R*Ts_6)))/M_PI,0.5);
         double F_core = m_dot*((1+f)*u_6 - u_0);
@@ -587,7 +673,33 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                 (*results_ptr)["[kg] Total mass"] = m_total;
                 (*results_ptr)["[kg/s] Core air mass flow"] = m_dot;
                 (*results_ptr)["[kg/s] Fuel mass flow"] = m_dot*f;
+                (*results_ptr)["[kg/s] Combustor air mass flow"] = m_dot*combustor_air_fraction;
+                (*results_ptr)["[kg/s] Combustor hot gas mass flow"] = m_hot;
+                (*results_ptr)["[kg/s] HP bearing return mass flow"] = m_HP_return;
+                (*results_ptr)["[kg/s] LP forward bearing return mass flow"] = m_LPf_return;
+                (*results_ptr)["[kg/s] LP rear bearing return mass flow"] = m_LPr_return;
+                (*results_ptr)["[kg/s] HPT rotor mass flow"] = m_HPT;
+                (*results_ptr)["[kg/s] Core nozzle mass flow"] = nozzle_mix.mass;
+                (*results_ptr)["[K] Bearing coolant total temperature"] = T_3;
+                (*results_ptr)["[Pa] Bearing bleed supply total pressure"] = P_3;
+                (*results_ptr)["[K] HPT mixed inlet total temperature"] = T_HPTin;
+                (*results_ptr)["[K] HPT mixed inlet static temperature"] = Ts_Ti;
+                (*results_ptr)["[Pa] HPT mixed inlet static pressure"] = Ps_Ti;
+                (*results_ptr)["[K] Core nozzle inlet total temperature"] = T_nozzle;
+                (*results_ptr)["[Pa] Core nozzle inlet total pressure"] = P_6;
+                (*results_ptr)["[J/(kg K)] HPT mixture heat capacity"] = cp_HPT;
+                (*results_ptr)["[J/(kg K)] Core nozzle mixture heat capacity"] = cp_nozzle;
+                (*results_ptr)["[W] Compressor absorbed power"] = m_dot*P_spC;
+                (*results_ptr)["[W] HPT extracted power"] = -m_HPT*cp_HPT*D_T_T;
+                (*results_ptr)["[W] Bearing cooling cycle energy residual"] =
+                    nozzle_mix.mass*cp_nozzle*T_nozzle + m_dot*P_spC
+                    + (aft_fan_ ? -m_LPT_flow*cp_LPT*D_T_LPT : 0.)
+                    - (m_dot*C_pc*T_3+m_dot*f*h_ker);
+                (*results_ptr)["[kg/s] Bearing cooling mass residual"] = nozzle_mix.mass-m_dot*(1+f);
                 if (aft_fan_) {
+                    (*results_ptr)["[kg/s] LPT rotor mass flow"] = m_LPT_flow;
+                    (*results_ptr)["[K] LPT mixed inlet total temperature"] = T_LPTin;
+                    (*results_ptr)["[J/(kg K)] LPT mixture heat capacity"] = cp_LPT;
                     (*results_ptr)["[m] LPT hub radius change (inlet-outlet)"] = R_LPTih-R_LPToh;
                     (*results_ptr)["[m] LPT shroud radius change (inlet-outlet)"] = R_LPTit-R_LPTot;
                     (*results_ptr)["[] LPT radius migration residual"] = con_LPT_migration;
@@ -609,7 +721,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                     (*results_ptr)["[] LPT degree of reaction"] = DoR_LPT;
                     (*results_ptr)["[kg] LPT NGV mass estimate"] = m_LPTNGV;
                     evaluate_turbine_blading(*results_ptr,"LPT",omega_LPT,
-                        R_LPTih,R_LPTit,R_LPToh,R_LPTot,u_LPTith_STAT,u_LPTia,u_LPToa,T_5,C_ph);
+                        R_LPTih,R_LPTit,R_LPToh,R_LPTot,u_LPTith_STAT,u_LPTia,u_LPToa,T_LPTin,cp_LPT,u_LPTia_NGV,T_5,cp_HPT);
                     (*results_ptr)["[Pa] P_6 (LPT discharge)"] = P_6;
                     (*results_ptr)["[K] T_6 (LPT discharge)"] = T_6;
                     (*results_ptr)["[] M_7 (core nozzle outlet)"] = M_6;
@@ -625,8 +737,8 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                     (*results_ptr)["[] Fan flow coefficient"] = phi_fan;
                     (*results_ptr)["[] Fan work coefficient"] = psi_fan;
                     (*results_ptr)["[] Fan specific speed"] = spec_speed_fan;
-                    (*results_ptr)["[W] LPT extracted power"] = -m_dot*(1+f)*C_ph*D_T_LPT;
-                    (*results_ptr)["[N m] LPT-to-fan transmitted torque"] = -m_dot*(1+f)*C_ph*D_T_LPT/omega_LPT;
+                    (*results_ptr)["[W] LPT extracted power"] = -m_LPT_flow*cp_LPT*D_T_LPT;
+                    (*results_ptr)["[N m] LPT-to-fan transmitted torque"] = -m_LPT_flow*cp_LPT*D_T_LPT/omega_LPT;
                     (*results_ptr)["[W] Fan absorbed power"] = m_dot_fan*C_pc*D_T_fan;
                     (*results_ptr)["[] Fan relative tip Mach"] = con_Mach_fan_tip + M_max_fan;
                     (*results_ptr)["[] LPT exit relative Mach"] = M_LPTo; // Legacy meanline key
@@ -644,7 +756,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                 (*results_ptr)["[] HPT degree of reaction"] = DoR;
                 record_turbine_mach(*results_ptr,"HPT",hpt_mach,M_Ti,M_Tom,M_NGVo);
                 evaluate_turbine_blading(*results_ptr,"HPT",omega,R_Tih,R_Tit,R_Toh,R_Tot,
-                                         u_Tith_STAT,u_Tia,u_Toa,T_4,C_ph);
+                                         u_Tith_STAT,u_Tia,u_Toa,T_HPTin,cp_HPT,u_Tia_NGV,T_4,C_ph);
                 (*results_ptr)["[] Compressor specific speed"] = spec_speed_C;
                 (*results_ptr)["[Pa] P_0 (ambient)"] = P_0;
                 (*results_ptr)["[K] T_0 (ambient)"] = T_0;

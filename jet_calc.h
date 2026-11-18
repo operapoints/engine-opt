@@ -59,7 +59,7 @@ struct problem_jet_calc{
         static constexpr double Ts_0 = 298.;
         static constexpr double Ps_0 = 101325.;
         static constexpr double Ps_6 = Ps_0;
-        static constexpr double u_0 = 140.;
+        static constexpr double u_0 = 0.;
 
         static constexpr double h_ker = 43e+6;
 
