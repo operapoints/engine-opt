@@ -18,6 +18,8 @@ namespace {
 constexpr double hp_bearing_bleed = 0.02;
 constexpr double lp_forward_bearing_bleed = 0.01;
 constexpr double lp_rear_bearing_bleed = 0.01;
+// Radial clearance reserved for the seal between LPT outlet tip and fan hub.
+constexpr double lpt_fan_seal_gap = 0.005; // m; not an axial gap
 
 // Perfect total-enthalpy mixing with constant species heat capacities and common R.
 // Return air remains at T3: bearing heat pickup/windage is not included.
@@ -413,7 +415,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double m_LPT_flow = m_HPT, cp_LPT = cp_HPT, gamma_LPT = gamma_HPT;
         double T_LPTin = T_5, u_LPTia_NGV = 0.;
         double T_nozzle = T_5, cp_nozzle = cp_HPT, gamma_nozzle = gamma_HPT;
-        double R_LPTot = 0., R_LPToh = 0., R_fan = 0., m_dot_fan = 0.;
+        double R_LPTot = 0., R_LPToh = 0., R_fan_hub = 0., R_fan = 0., m_dot_fan = 0.;
         double D_T_fan = 0., T_fano = 0., P_fano = 0., F_fan = 0., u_LPToa = 0.;
         double phi_LPT = 0., psi_LPT = 0., phi_fan = 0., psi_fan = 0.;
         double spec_speed_fan = 0., spec_dia_fan = 0.;
@@ -452,11 +454,13 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             double sigma_max_LPTo = 0.5*omega_LPT*omega_LPT*rho_T*(R_LPTot*R_LPTot - R_LPToh*R_LPToh);
             con_sigma_max_LPTo = FOS_T * sigma_max_LPTo - sigma_max_T;// FOS at compressor inlet blade root
 
-            R_fan = fan_blade_width + R_LPTot;
+            R_fan_hub = R_LPTot + lpt_fan_seal_gap;
+            // The design variable remains the aerodynamic fan blade radial span.
+            R_fan = fan_blade_width + R_fan_hub;
             // Direct relative Mach residual stays finite when axial speed alone exceeds the limit.
             con_Mach_fan_tip = std::sqrt((u_fani*u_fani + omega_LPT*omega_LPT*R_fan*R_fan)
                                                 /(gam_c*R*Ts_fani)) - M_max_fan;
-            double A_fan = M_PI*(R_fan*R_fan - R_LPTot*R_LPTot);
+            double A_fan = M_PI*(R_fan*R_fan - R_fan_hub*R_fan_hub);
             m_dot_fan = A_fan * u_fani* rhos_fani;
             D_T_fan = -(cp_LPT*m_LPT_flow*D_T_LPT)/(C_pc*m_dot_fan);
             T_fano = D_T_fan+T_0;
@@ -465,7 +469,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             // fan centrifugal loads; its LPT coupling transmits torque only.
             // Do not add fan radial load to the LPT blade-root stress estimate.
             // Ring/attachment strength and mass are not sized by this surrogate.
-            double sigma_max_fano = 0.5*omega_LPT*omega_LPT*rho_T*(R_fan * R_fan - R_LPTot*R_LPTot);
+            double sigma_max_fano = 0.5*omega_LPT*omega_LPT*rho_T*(R_fan * R_fan - R_fan_hub*R_fan_hub);
             con_sigma_max_fano = FOS_T * sigma_max_fano - sigma_max_T;// FOS at compressor inlet blade root
 
             // Fan nozzle
@@ -525,8 +529,12 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             con_DoR_LPT = std::abs(0.4-DoR_LPT)-0.1;
             con_LPT_width = 0.009-(R_LPTit-R_LPTih);
             con_LPT_outlet_width = 0.009-A_LPTo/(2*M_PI*R_LPTom);
+            // Retain the existing conservative fan-load-at-LPT-hub surrogate,
+            // but do not count the empty seal gap as centrifugal blade mass.
+            // Seal/ring structure and its mass are not sized by this model.
             const double sigma_max_LPTi = 0.5*omega_LPT*omega_LPT*rho_T*
-                                         (R_fan*R_fan-R_LPTih*R_LPTih);
+                ((R_LPTot*R_LPTot-R_LPTih*R_LPTih)
+                 +(R_fan*R_fan-R_fan_hub*R_fan_hub));
             con_sigma_max_LPTi = FOS_T*sigma_max_LPTi-sigma_max_T;
             // Use Q/(pi*omega*r^3), consistent with main's Cordier convention.
             phi_fan = (u_fani*A_fan/(M_PI*R_fan*R_fan)) / (omega_LPT*R_fan);
@@ -588,7 +596,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double m_LPT = std::max(m_LPT_conical,m_LPT_prismatic);
         double m_LPTNGV = (0.2885/(0.0315287*0.0315287))*R_LPTit*R_LPTit;
         double m_transition = M_PI*(std::abs(R_LPTit*R_LPTit - R_Tot*R_Tot)+std::abs(R_LPTih*R_LPTih - R_Toh*R_Toh))*1.414*0.0015*rho_T;
-        double m_fan = M_PI*(R_fan*R_fan - R_LPTot*R_LPTot)*0.0015*rho_T;
+        double m_fan = M_PI*(R_fan*R_fan - R_fan_hub*R_fan_hub)*0.0015*rho_T;
         double m_nozzle = M_PI*(std::abs(R_6*R_6 - R_LPTot*R_LPTot))*1.414*0.0015*rho_T;
 
         double m_total = 1.12*(m_Compressor + m_Turbine+
@@ -731,6 +739,9 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                     (*results_ptr)["[Pa] Fan discharge total pressure"] = P_fano;
                     (*results_ptr)["[K] Fan discharge total temperature"] = T_fano;
                     (*results_ptr)["[m] Fan tip radius"] = R_fan;
+                    (*results_ptr)["[m] Fan hub radius"] = R_fan_hub;
+                    (*results_ptr)["[m] LPT outlet tip radius"] = R_LPTot;
+                    (*results_ptr)["[m] LPT-to-fan seal radial gap"] = R_fan_hub-R_LPTot;
                     (*results_ptr)["[m] LPT outlet hub radius"] = R_LPToh;
                     (*results_ptr)["[] LPT flow coefficient"] = phi_LPT;
                     (*results_ptr)["[] LPT work coefficient"] = psi_LPT;
