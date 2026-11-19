@@ -140,7 +140,7 @@ vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
 }
 vector_double::size_type problem_jet_calc::get_nic() const{
-    return aft_fan_ ? 45 : 26;
+    return aft_fan_ ? 44 : 26;
 }
 
 std::pair<vector_double, vector_double> problem_jet_calc::get_bounds() const{
@@ -420,7 +420,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double phi_LPT = 0., psi_LPT = 0., phi_fan = 0., psi_fan = 0.;
         double spec_speed_fan = 0., spec_dia_fan = 0.;
         double con_LPT_backpres = 0., con_sigma_max_LPTo = 0., con_Mach_fan_tip = 0.;
-        double con_sigma_max_fano = 0., con_phi_LPT = 0., con_psi_LPT = 0.;double con_k_LPT = 0.;
+        double con_phi_LPT = 0., con_psi_LPT = 0.;double con_k_LPT = 0.;
         double con_cordier_fan = 0., M_LPTo = 0.;
         TurbineSpanMach lpt_mach;
         double u_LPTia = 0., u_LPTith_STAT = 0., Ts_LPTi = 0., Ps_LPTi = 0.;
@@ -451,9 +451,6 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             R_LPToh = R_LPTom - A_LPTo/(4*M_PI*R_LPTom);
 
 
-            double sigma_max_LPTo = 0.5*omega_LPT*omega_LPT*rho_T*(R_LPTot*R_LPTot - R_LPToh*R_LPToh);
-            con_sigma_max_LPTo = FOS_T * sigma_max_LPTo - sigma_max_T;// FOS at compressor inlet blade root
-
             R_fan_hub = R_LPTot + lpt_fan_seal_gap;
             // The design variable remains the aerodynamic fan blade radial span.
             R_fan = fan_blade_width + R_fan_hub;
@@ -465,13 +462,6 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             D_T_fan = -(cp_LPT*m_LPT_flow*D_T_LPT)/(C_pc*m_dot_fan);
             T_fano = D_T_fan+T_0;
             P_fano = P_0*std::pow((T_0+eta_fan*D_T_fan)/T_0,(gam_c/(gam_c-1)));
-            // Architecture assumption: an independently supported outer ring carries
-            // fan centrifugal loads; its LPT coupling transmits torque only.
-            // Do not add fan radial load to the LPT blade-root stress estimate.
-            // Ring/attachment strength and mass are not sized by this surrogate.
-            double sigma_max_fano = 0.5*omega_LPT*omega_LPT*rho_T*(R_fan * R_fan - R_fan_hub*R_fan_hub);
-            con_sigma_max_fano = FOS_T * sigma_max_fano - sigma_max_T;// FOS at compressor inlet blade root
-
             // Fan nozzle
             double Ts_fannoz = T_fano*std::pow(Ps_6/P_fano,(gam_c-1)/gam_c);
             double a_fannoz = std::pow(gam_c*R*Ts_fannoz,0.5);
@@ -529,13 +519,30 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             con_DoR_LPT = std::abs(0.4-DoR_LPT)-0.1;
             con_LPT_width = 0.009-(R_LPTit-R_LPTih);
             con_LPT_outlet_width = 0.009-A_LPTo/(2*M_PI*R_LPTom);
-            // Retain the existing conservative fan-load-at-LPT-hub surrogate,
-            // but do not count the empty seal gap as centrifugal blade mass.
-            // Seal/ring structure and its mass are not sized by this model.
-            const double sigma_max_LPTi = 0.5*omega_LPT*omega_LPT*rho_T*
-                ((R_LPTot*R_LPTot-R_LPTih*R_LPTih)
-                 +(R_fan*R_fan-R_fan_hub*R_fan_hub));
+            // Combined LPT blade / shroud / fan blade: all centrifugal load
+            // reacts through the LPT root, with equal effective metal areas
+            // and common density rho_T. Fan tip radius is constant axially;
+            // fan hub follows the local LPT tip with the same radial seal gap.
+            const double R_fan_hub_i = R_LPTit + lpt_fan_seal_gap;
+            if (!(R_fan > R_fan_hub_i)) return penalty();
+            const double R_shroud_i = 0.5*(R_LPTit + R_fan_hub_i);
+            const double R_shroud_o = 0.5*(R_LPTot + R_fan_hub);
+            // Original mean-span shroud mass surrogate: AR = 1.5,
+            // solidity = 1.0, shroud circumferential section = blade root area.
+            const double LPT_mean_span = 0.5*(R_LPTit + R_LPTot)
+                                       -0.5*(R_LPTih + R_LPToh);
+            const double shroud_mass_per_root_area = rho_T*LPT_mean_span/1.5;
+            const double omega_LPT_sq = omega_LPT*omega_LPT;
+            const double sigma_max_LPTi = 0.5*omega_LPT_sq*rho_T*
+                ((R_LPTit*R_LPTit-R_LPTih*R_LPTih)
+                 +(R_fan*R_fan-R_fan_hub_i*R_fan_hub_i))
+                +shroud_mass_per_root_area*omega_LPT_sq*R_shroud_i;
+            const double sigma_max_LPTo = 0.5*omega_LPT_sq*rho_T*
+                ((R_LPTot*R_LPTot-R_LPToh*R_LPToh)
+                 +(R_fan*R_fan-R_fan_hub*R_fan_hub))
+                +shroud_mass_per_root_area*omega_LPT_sq*R_shroud_o;
             con_sigma_max_LPTi = FOS_T*sigma_max_LPTi-sigma_max_T;
+            con_sigma_max_LPTo = FOS_T*sigma_max_LPTo-sigma_max_T;
             // Use Q/(pi*omega*r^3), consistent with main's Cordier convention.
             phi_fan = (u_fani*A_fan/(M_PI*R_fan*R_fan)) / (omega_LPT*R_fan);
             psi_fan = (2*C_pc*D_T_fan) / (omega_LPT*omega_LPT*R_fan*R_fan);
@@ -648,7 +655,6 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                 con_k_LPT/0.5,
                 con_Mach_fan_tip, 
                 con_cordier_fan,
-                con_sigma_max_fano/1.e9, 
                 con_sigma_max_LPTo/1.e9,
                 (0.004-R_LPToh)/0.005,
                 lpt_mach.outlet_hub-0.9,
@@ -661,13 +667,14 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             });
         }
 
-        // Preserve prior indices: former meanline slots now constrain the hub.
+        // Former meanline slots now constrain the hub. Removing the redundant
+        // fan-only stress constraint shifts subsequent aft-fan indices by one.
         // Append shroud constraints after the existing engine-specific entries.
         ret.insert(ret.end(), {hpt_mach.inlet_shroud-0.8,hpt_mach.outlet_shroud-0.9});
         if (aft_fan_)
             ret.insert(ret.end(), {lpt_mach.inlet_shroud-0.8,lpt_mach.outlet_shroud-0.9});
 
-        // Append one geometry heuristic per turbine, preserving all prior slots.
+        // Append one geometry heuristic per turbine.
         ret.push_back(con_HPT_migration);
         if (aft_fan_) ret.push_back(con_LPT_migration);
 
