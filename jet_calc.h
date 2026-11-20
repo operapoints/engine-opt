@@ -9,6 +9,11 @@
 #include <string>
 #include <cmath>
 #include <stdexcept>
+#include <iosfwd>
+
+// Deterministic, component-grouped presentation of the optional diagnostics.
+void print_jet_inspection(std::ostream& stream,
+                          const std::unordered_map<std::string,double>& results);
 
 
 #include <boost/math/tools/roots.hpp>

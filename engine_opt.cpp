@@ -253,8 +253,7 @@ ParetoPoint run_optimization(bool aft_fan, bool quick, double min_isp,
       for (std::size_t j = 1; j < f.size(); ++j)
           std::cout << "Constraint " << j << ": " << f[j] << '\n';
       if (results.empty()) std::cout << "Invalid physical state; evaluation returned penalties.\n";
-      for (const auto& entry : results)
-          std::cout << entry.first << " : " << entry.second << '\n';
+      print_jet_inspection(std::cout, results);
       if (results.empty()) throw std::runtime_error("Invalid inspected physical state");
       return ParetoPoint{};
   }
@@ -483,9 +482,7 @@ ParetoPoint run_optimization(bool aft_fan, bool quick, double min_isp,
 
     std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
     std::cout << "Further details\n";
-    for (const auto& entry : results) {
-        std::cout << '\t' << entry.first << " : " << entry.second << '\n';
-    }
+    print_jet_inspection(std::cout, results);
 
     auto end = std::chrono::steady_clock::now();
 

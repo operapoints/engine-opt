@@ -8,6 +8,9 @@
 #include <stdexcept>
 #include <algorithm>
 #include <limits>
+#include <ostream>
+#include <map>
+#include <tuple>
 
 
 using namespace pagmo;
@@ -127,6 +130,13 @@ void evaluate_turbine_blading(std::unordered_map<std::string,double>& out,
         out[key("[deg]","NGV exit angle")] = 180./M_PI*std::atan2(swirl,c_axial_ngv);
         out[key("[deg]","rotor inlet angle")] = 180./M_PI*std::atan2(swirl-omega*r_in,c_axial_in);
         out[key("[deg]","rotor outlet angle")] = 180./M_PI*std::atan2(omega*r_out,c_axial_out);
+        const auto signed_key = [&](const std::string& name) {
+            return "[deg] "+stage+" "+name+" ("+(i==2 ? std::string("shroud") : span)+")";
+        };
+        out[signed_key("rotor inlet alpha signed")] = 180./M_PI*std::atan2(swirl,c_axial_in);
+        out[signed_key("rotor inlet beta signed")] = 180./M_PI*std::atan2(swirl-omega*r_in,c_axial_in);
+        out[signed_key("rotor outlet alpha signed")] = 0.;
+        out[signed_key("rotor outlet beta signed")] = -180./M_PI*std::atan2(omega*r_out,c_axial_out);
     }
     // Failed radial states remain visible; inspection must not change fitness.
     out["[0/1] "+stage+" free-vortex span valid"] = valid ? 1. : 0.;
@@ -135,6 +145,103 @@ void evaluate_turbine_blading(std::unordered_map<std::string,double>& out,
 
 
 
+
+// Presentation is independent of unordered_map insertion/bucket order.
+void print_jet_inspection(std::ostream& stream,
+                          const std::unordered_map<std::string,double>& results) {
+    if (results.empty()) return;
+    stream << "\nCAD inspection conventions\n"
+           << "  SI units; radii describe gas-path boundaries. Mean = arithmetic span midpoint.\n"
+           << "  Legacy P_n/T_n keys denote total pressure/temperature. Static values are labeled explicitly.\n"
+           << "  Free vortex: r*C_theta constant, uniform axial velocity across each span.\n"
+           << "  alpha = atan2(C_theta,C_axial); beta = atan2(C_theta-omega*r,C_axial).\n"
+           << "  Signed angles: degrees from axial, positive with rotation. Flow angles assume zero incidence/deviation for a first blade sketch.\n"
+           << "  Legacy compressor/outlet turbine angles may use positive opposing-rotation magnitudes. Use 'signed' keys for CAD.\n"
+           << "  Legacy 'tip' and 'shroud' both denote the outer gas-path boundary.\n"
+           << "  NGV exit is before coolant return; rotor inlet is after mixing. Turbine rotor exit swirl is zero.\n"
+           << "  Compressor outlet alpha also gives the diffuser inlet flow angle. NGV inlet geometry is not resolved.\n"
+           << "  Combustor radii/length/thickness reuse mass-model assumptions; bulk speed/residence use total-state density (low-Mach estimate).\n"
+           << "  Chord estimates use span/1.5; blade count, camber, thickness, stagger, row gaps and absolute axial positions remain unspecified.\n"
+           << "  Nozzle exit is the cycle's fully expanded circular area; a centrebody requires a new annulus layout.\n";
+    if (results.count("[m] Fan hub radius"))
+        stream << "  Fan inlet coupled hub follows LPT inlet; mass flow uses the outlet annulus. Inlet angles use the model inlet speed.\n"
+               << "  Fan outlet swirl is inferred from Euler work with zero inlet swirl; axial speed uses outlet annulus continuity. No downstream deswirler is modeled.\n"
+               << "  Fan nozzle annular exit radii assume the rotor outlet hub continues downstream.\n"
+               << "  Nonfinite inferred fan angles mean that this added diagnostic has no physical solution.\n";
+    const auto contains = [](const std::string& s, const char* word) { return s.find(word)!=std::string::npos; };
+    const auto section = [&](const std::string& k) {
+        if (contains(k,"residual") || contains(k,"valid")) return 9;
+        if (k.compare(0,4,"[K] ")==0 || k.compare(0,5,"[Pa] ")==0 || contains(k,"heat capacity")) return 1;
+        if (contains(k,"Compressor")) return 2;
+        if (contains(k,"Combustor")) return 3;
+        if (contains(k,"HPT") || contains(k,"Turbine") || contains(k,"turbine")) return 4;
+        if (contains(k,"LPT")) return 5;
+        if (contains(k,"Fan") || contains(k,"Bypass")) return 6;
+        if (contains(k,"nozzle")) return 7;
+        if (contains(k,"casing") || contains(k,"Shaft") || contains(k,"Overall")) return 8;
+        return 0;
+    };
+    const auto block = [&](const std::string& k) {
+        if (contains(k,"[deg]")) return 1;
+        if (contains(k,"[m]") || contains(k,"[m^2]") || contains(k,"[m^3]")) return 0;
+        if (contains(k,"coefficient") || contains(k,"reaction") || contains(k,"specific speed") || contains(k,"specific diameter") || contains(k,"diffusion")) return 3;
+        if (contains(k,"Mach")) return 4;
+        if (contains(k,"[m/s]") || contains(k,"[rad/s]") || contains(k,"[rpm]")) return 2;
+        if (contains(k,"[kg]")) return 6;
+        return 5;
+    };
+    const char* sections[] = {"Performance and mass flows", "Station thermodynamics (total/static as labeled)",
+        "Compressor and diffuser", "Combustor", "HPT", "LPT", "Aft fan", "Core nozzle", "Casing and shaft", "Diagnostic residuals and validity"};
+    const char* blocks[] = {"Radii, areas and layout dimensions", "Blading flow angles", "Speeds and velocity triangles",
+        "Flow/work coefficients and aerodynamic parameters", "Mach numbers", "Power, flow and other quantities", "Mass estimates"};
+    // Strip units for sorting, then keep each span triple in hub/mean/shroud order.
+    const auto label_order = [](const std::string& key) {
+        std::string label = key.substr(key.find(']')+1);
+        int span = -1;
+        const char* spans[] = {" (hub)"," (mean)"," (shroud)"," (tip)"};
+        for (int i=0; i<4; ++i) {
+            const auto pos = label.find(spans[i]);
+            if (pos!=std::string::npos) { label.erase(pos); span = std::min(i,2); break; }
+        }
+        return std::make_tuple(label,span,key);
+    };
+    using Entry = std::pair<std::string,double>;
+    std::map<std::pair<int,int>,std::vector<Entry>> groups;
+    for (const auto& entry : results) {
+        const int sec = section(entry.first);
+        groups[{sec, sec==1 ? 0 : block(entry.first)}].push_back(entry);
+    }
+    const auto station_order = [&](const std::string& k) {
+        if (contains(k,"_0 (ambient)")) return 0;
+        if (contains(k,"Compressor inlet")) return 1;
+        if (contains(k,"_3 (compressor") || contains(k,"Compressor outlet")) return 2;
+        if (contains(k,"Bearing")) return 3;
+        if (contains(k,"_4 (combustor")) return 4;
+        if (contains(k,"HPT NGV")) return 5;
+        if (contains(k,"HPT mixed") || contains(k,"HPT rotor") || contains(k,"HPT mixture")) return 6;
+        if (contains(k,"HPT outlet") || contains(k,"_5 (turbine")) return 7;
+        if (contains(k,"LPT NGV")) return 8;
+        if (contains(k,"LPT inlet") || contains(k,"LPT mixed") || contains(k,"LPT mixture")) return 9;
+        if (contains(k,"LPT outlet") || contains(k,"_6 (LPT")) return 10;
+        if (contains(k,"Core nozzle inlet") || contains(k,"Core nozzle mixture")) return 11;
+        if (contains(k,"Core nozzle exit")) return 12;
+        if (contains(k,"Fan")) return 13;
+        return 14;
+    };
+    int previous = -1;
+    for (auto& group : groups) {
+        const int sec = group.first.first;
+        if (sec!=previous) { stream << "\n=== " << sections[sec] << " ===\n"; previous=sec; }
+        if (sec!=1) stream << "  -- " << blocks[group.first.second] << " --\n";
+        std::sort(group.second.begin(),group.second.end(),[&](const Entry& a,const Entry& b) {
+            if (sec==1 && station_order(a.first)!=station_order(b.first))
+                return station_order(a.first)<station_order(b.first);
+            return label_order(a.first)<label_order(b.first);
+        });
+        for (const auto& entry : group.second)
+            stream << "    " << entry.first << " : " << entry.second << '\n';
+    }
+}
 
 vector_double::size_type problem_jet_calc::get_nec() const{
     return 0;
@@ -681,6 +788,122 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         if (invalid_ret(ret)) return penalty();
 
             if(results_ptr != nullptr){
+                auto& cad = *results_ptr;
+                // These helpers and all additional layout arithmetic are inspection-only.
+                const auto annulus = [&](const std::string& part, double hub, double tip) {
+                    cad["[m] "+part+" hub radius"] = hub;
+                    cad["[m] "+part+" shroud radius"] = tip;
+                    cad["[m] "+part+" mean radius"] = 0.5*(hub+tip);
+                    cad["[m] "+part+" radial span"] = tip-hub;
+                    cad["[m^2] "+part+" annulus area"] = M_PI*(tip*tip-hub*hub);
+                };
+                const auto rotor_angles = [&](const std::string& part, double speed,
+                        double hub, double tip, double ca, double vortex) {
+                    for (int i=0; i<3; ++i) {
+                        const double radius = i==0 ? hub : (i==1 ? 0.5*(hub+tip) : tip);
+                        const std::string span = i==0 ? "hub" : (i==1 ? "mean" : "shroud");
+                        const std::string suffix = " ("+span+")";
+                        const double ct = radius>0. ? vortex/radius : std::numeric_limits<double>::quiet_NaN();
+                        cad["[deg] "+part+" alpha signed"+suffix] = 180./M_PI*std::atan2(ct,ca);
+                        cad["[deg] "+part+" beta signed"+suffix] = 180./M_PI*std::atan2(ct-speed*radius,ca);
+                        cad["[m/s] "+part+" axial velocity"+suffix] = ca;
+                        cad["[m/s] "+part+" swirl"+suffix] = ct;
+                        cad["[m/s] "+part+" blade speed"+suffix] = speed*radius;
+                    }
+                };
+                annulus("Compressor inlet",R_Cih,R_Cit);
+                annulus("Compressor outlet",R_Coh,R_Cot);
+                annulus("HPT inlet",R_Tih,R_Tit);
+                annulus("HPT outlet",R_Toh,R_Tot);
+                rotor_angles("Compressor inlet",omega,R_Cih,R_Cit,u_i,0.);
+                rotor_angles("Compressor outlet",omega,R_Coh,R_Cot,u_Coa,R_Com*u_Coth_STAT);
+                cad["[rad/s] Compressor shaft speed"] = omega;
+                cad["[rpm] Compressor shaft speed"] = omega*60./(2*M_PI);
+                cad["[rad/s] HPT shaft speed"] = omega;
+                cad["[rpm] HPT shaft speed"] = omega*60./(2*M_PI);
+                cad["[m] HPT coefficient reference radius"] = 0.5*(R_Tim+R_Tom);
+                cad["[m] HPT rotor axial chord (rough AR 1.5)"] = 0.5*((R_Tit-R_Tih)+(R_Tot-R_Toh))/1.5;
+                cad["[] HPT flow coefficient"] = phi_T;
+                cad["[] HPT work coefficient"] = psi_T;
+                cad["[N m] HPT shaft torque"] = m_dot*P_spC/omega;
+                cad["[m/s] HPT outlet axial velocity"] = u_Toa;
+                cad["[m/s] Core nozzle exit axial velocity"] = u_6;
+                // The cycle models a fully expanded circular nozzle, without a centrebody.
+                cad["[m] Core nozzle exit hub radius (model)"] = 0.;
+                cad["[m] Core nozzle exit shroud radius"] = R_6;
+                cad["[m^2] Core nozzle exit area"] = M_PI*R_6*R_6;
+                cad["[K] Core nozzle exit static temperature"] = Ts_6;
+                cad["[Pa] Core nozzle exit static pressure"] = Ps_6;
+                cad["[K] Compressor inlet total temperature"] = T_0;
+                cad["[Pa] Compressor inlet total pressure"] = P_0;
+                cad["[K] Compressor inlet static temperature"] = Ts_2;
+                cad["[Pa] Compressor inlet static pressure"] = Ps_2;
+                cad["[K] Compressor outlet static temperature"] = Ts_3;
+                cad["[Pa] Compressor outlet static pressure"] = Ps_3;
+                cad["[K] HPT outlet static temperature"] = Ts_To;
+                cad["[Pa] HPT outlet static pressure"] = P_5*std::pow(Ts_To/T_5,gamma_HPT/(gamma_HPT-1));
+                cad["[] Compressor inlet relative tip Mach"] = M_Ci_tip;
+                cad["[] Compressor outlet relative mean Mach"] = M_Co_ROT;
+                cad["[] Compressor outlet absolute mean Mach"] = M_Co_STAT;
+                cad["[] Compressor diffusion factor"] = Diff_C;
+                cad["[] Compressor specific diameter"] = spec_dia_C;
+                cad["[kg] Compressor mass estimate"] = m_Compressor;
+                cad["[kg] HPT mass estimate"] = m_Turbine;
+                cad["[kg] Combustor liner mass estimate"] = m_Combustor;
+                // Reuse EXACTLY the liner radii and length assumed by the mass model.
+                const double liner_hub = 0.5*R_overall, liner_tip = 0.8*R_overall;
+                const double liner_area = M_PI*(liner_tip*liner_tip-liner_hub*liner_hub);
+                const double hot_bulk_speed = m_hot*R*T_4/(P_4*liner_area);
+                annulus("Combustor liner (rough)",liner_hub,liner_tip);
+                cad["[m] Combustor axial length (mass-model heuristic)"] = len_Combustor;
+                cad["[m] Combustor liner thickness (mass-model assumption)"] = 0.00065;
+                cad["[m^3] Combustor liner enclosed volume (rough)"] = liner_area*len_Combustor;
+                cad["[m/s] Combustor hot bulk speed (low-Mach estimate)"] = hot_bulk_speed;
+                cad["[s] Combustor hot residence time (low-Mach estimate)"] = len_Combustor/hot_bulk_speed;
+                cad["[m] Combustor outer radial allowance to casing"] = R_overall-liner_tip;
+                cad["[m] Compressor diffuser outer radius (mass-model estimate)"] =
+                    R_Com*(0.036/0.03)*(0.4/std::min(spec_speed_C,0.4));
+                cad["[m] Core casing thickness (mass-model assumption)"] = 0.00065;
+                cad["[m] Shaft radius (mass-model assumption)"] = 0.005;
+                cad["[m] Shaft length (mass-model assumption)"] = len_Combustor+R_Com+0.02;
+                cad["[m] Overall gas-path envelope radius"] = aft_fan_ ? std::max(R_overall,R_fan) : R_overall;
+                cad["[m] Overall gas-path envelope diameter"] = 2*cad.at("[m] Overall gas-path envelope radius");
+                if (aft_fan_) {
+                    annulus("LPT inlet",R_LPTih,R_LPTit);
+                    annulus("LPT outlet",R_LPToh,R_LPTot);
+                    cad["[rad/s] LPT shaft speed"] = omega_LPT;
+                    cad["[rpm] LPT shaft speed"] = omega_LPT*60./(2*M_PI);
+                    cad["[m] LPT rotor axial chord (rough AR 1.5)"] = 0.5*((R_LPTit-R_LPTih)+(R_LPTot-R_LPToh))/1.5;
+                    cad["[Pa] LPT outlet static pressure"] = P_6*std::pow(Ts_LPTo/T_6,gamma_LPT/(gamma_LPT-1));
+                    // Fan flow model uses the OUTLET annulus for its inlet mass flow.
+                    // Expose that reference separately from the coupled inlet hub geometry.
+                    annulus("Fan inlet coupled geometry",R_LPTit+lpt_fan_seal_gap,R_fan);
+                    annulus("Fan outlet",R_fan_hub,R_fan);
+                    cad["[m^2] Fan mass-flow reference area"] = M_PI*(R_fan*R_fan-R_fan_hub*R_fan_hub);
+                    const double fan_exit_ts = T_fano*std::pow(Ps_6/P_fano,(gam_c-1)/gam_c);
+                    const double fan_exit_speed = std::sqrt(gam_c*R*fan_exit_ts)*
+                        std::sqrt((2/(gam_c-1))*(std::pow(P_fano/Ps_6,(gam_c-1)/gam_c)-1));
+                    const double fan_exit_area = m_dot_fan/(fan_exit_speed*Ps_6/(R*fan_exit_ts));
+                    cad["[m^2] Fan nozzle fully expanded exit area (cycle)"] = fan_exit_area;
+                    cad["[m] Fan nozzle exit hub radius (assumed)"] = R_fan_hub;
+                    cad["[m] Fan nozzle exit shroud radius (inferred)"] = std::sqrt(R_fan_hub*R_fan_hub+fan_exit_area/M_PI);
+                    cad["[m/s] Fan nozzle exit speed (cycle)"] = fan_exit_speed;
+                    cad["[K] Fan nozzle exit static temperature"] = fan_exit_ts;
+                    cad["[Pa] Fan nozzle exit static pressure"] = Ps_6;
+                    cad["[rad/s] Fan shaft speed"] = omega_LPT;
+                    cad["[rpm] Fan shaft speed"] = omega_LPT*60./(2*M_PI);
+                    rotor_angles("Fan inlet",omega_LPT,R_LPTit+lpt_fan_seal_gap,R_fan,u_fani,0.);
+                    const double fan_mean = 0.5*(R_fan_hub+R_fan);
+                    const double fan_vortex = C_pc*D_T_fan/omega_LPT;
+                    double fan_ca = std::numeric_limits<double>::quiet_NaN();
+                    // A diagnostic root failure must never send fitness to the penalty path.
+                    try {
+                        fan_ca = compute_u_a(m_dot_fan,P_fano/(R*T_fano),T_fano,
+                            fan_vortex/fan_mean,gam_c,cad.at("[m^2] Fan mass-flow reference area"));
+                    } catch (const boost::math::evaluation_error&) {}
+                    rotor_angles("Fan outlet (inferred)",omega_LPT,R_fan_hub,R_fan,fan_ca,fan_vortex);
+                    cad["[0/1] Fan inferred outlet velocity valid"] = std::isfinite(fan_ca) ? 1. : 0.;
+                }
                 (*results_ptr)["[N] Total thrust"] = F;
                 (*results_ptr)["[N] Core thrust"] = F_core;
                 (*results_ptr)["[N] Fan thrust"] = F_fan;
