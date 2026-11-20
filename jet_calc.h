@@ -41,6 +41,13 @@ struct problem_jet_calc{
         double eta_fan = 0.85;
         // User-selected fan inlet relative tip Mach limit.
         double M_max_fan = 1.2;
+        // Inspection-only mixed-flow layout. Positive angles point radially outward
+        // from axial. Reinterpret A_Co as flow-normal area and u_Coa as meridional
+        // speed for CAD; the optimizer's original meanline model is unchanged.
+        static constexpr double compressor_exit_meridional_angle_deg = 55.0;
+        static_assert(compressor_exit_meridional_angle_deg > -90.0 &&
+                      compressor_exit_meridional_angle_deg < 90.0,
+                      "Compressor CAD exit angle must lie strictly between -90 and 90 degrees");
         // Non-varying parameters
         // Define things like environment parameters and compenent efficiencies here
         // Physical bounds in design-vector order. Optimizer coordinates are in [0, 1]:

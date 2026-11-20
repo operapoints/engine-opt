@@ -153,9 +153,13 @@ void print_jet_inspection(std::ostream& stream,
     stream << "\nCAD inspection conventions\n"
            << "  SI units; radii describe gas-path boundaries. Mean = arithmetic span midpoint.\n"
            << "  Legacy P_n/T_n keys denote total pressure/temperature. Static values are labeled explicitly.\n"
-           << "  Free vortex: r*C_theta constant, uniform axial velocity across each span.\n"
-           << "  alpha = atan2(C_theta,C_axial); beta = atan2(C_theta-omega*r,C_axial).\n"
-           << "  Signed angles: degrees from axial, positive with rotation. Flow angles assume zero incidence/deviation for a first blade sketch.\n"
+           << "  Free vortex: r*C_theta constant, uniform meridional velocity across each span.\n"
+           << "  alpha = atan2(C_theta,C_meridional); beta = atan2(C_theta-omega*r,C_meridional).\n"
+           << "  Signed blade-flow angles: degrees from local meridional, positive with rotation; meridional is axial except at compressor outlet.\n"
+           << "  Compressor outlet uses a constant assumed meridional angle from axial (positive outward), fixed flow-normal area and unchanged meanline speed.\n"
+           << "  Compressor outlet radii and axial offsets describe an exit edge normal to that flow, relative to its midpoint (downstream z positive).\n"
+           << "  Equivalent shaft-normal section and optimizer reference radii are labeled separately; optimizer geometry, mass and constraints are unchanged.\n"
+           << "  Flow angles assume zero incidence/deviation for a first blade sketch.\n"
            << "  Legacy compressor/outlet turbine angles may use positive opposing-rotation magnitudes. Use 'signed' keys for CAD.\n"
            << "  Legacy 'tip' and 'shroud' both denote the outer gas-path boundary.\n"
            << "  NGV exit is before coolant return; rotor inlet is after mixing. Turbine rotor exit swirl is zero.\n"
@@ -678,7 +682,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double R_6 = std::pow((m_dot*(1+f))/(u_6*(Ps_0/(R*Ts_6)))/M_PI,0.5);
         double F_core = m_dot*((1+f)*u_6 - u_0);
         double F = F_core + F_fan;
-        double con_F = (667.233)-F; // Thrust at least 150lbf
+        double con_F = 667.233-F; // Thrust at least 100lbf
         // Mass model
         double m_Compressor_conical = std::abs((M_PI*(R_Cih*R_Cih*R_Cih - R_Coh*R_Coh*R_Coh)))*(rho_C/3);
         double m_Compressor_prismatic = (R_Cot - R_Coh)*M_PI*R_Coh*R_Coh
@@ -798,25 +802,56 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                     cad["[m^2] "+part+" annulus area"] = M_PI*(tip*tip-hub*hub);
                 };
                 const auto rotor_angles = [&](const std::string& part, double speed,
-                        double hub, double tip, double ca, double vortex) {
+                        double hub, double tip, double cm, double vortex,
+                        double meridional_angle_deg = 0.) {
+                    const double inclination = meridional_angle_deg*M_PI/180.;
                     for (int i=0; i<3; ++i) {
                         const double radius = i==0 ? hub : (i==1 ? 0.5*(hub+tip) : tip);
                         const std::string span = i==0 ? "hub" : (i==1 ? "mean" : "shroud");
                         const std::string suffix = " ("+span+")";
                         const double ct = radius>0. ? vortex/radius : std::numeric_limits<double>::quiet_NaN();
-                        cad["[deg] "+part+" alpha signed"+suffix] = 180./M_PI*std::atan2(ct,ca);
-                        cad["[deg] "+part+" beta signed"+suffix] = 180./M_PI*std::atan2(ct-speed*radius,ca);
-                        cad["[m/s] "+part+" axial velocity"+suffix] = ca;
+                        cad["[deg] "+part+" alpha signed"+suffix] = 180./M_PI*std::atan2(ct,cm);
+                        cad["[deg] "+part+" beta signed"+suffix] = 180./M_PI*std::atan2(ct-speed*radius,cm);
+                        cad["[m/s] "+part+" axial velocity"+suffix] = cm*std::cos(inclination);
+                        if (part == "Compressor outlet") {
+                            cad["[m/s] "+part+" meridional velocity"+suffix] = cm;
+                            cad["[m/s] "+part+" radial velocity"+suffix] = cm*std::sin(inclination);
+                        }
                         cad["[m/s] "+part+" swirl"+suffix] = ct;
                         cad["[m/s] "+part+" blade speed"+suffix] = speed*radius;
                     }
                 };
                 annulus("Compressor inlet",R_Cih,R_Cit);
-                annulus("Compressor outlet",R_Coh,R_Cot);
+                // Pure redirection of the original meanline solution: A_Co is
+                // held as flow-normal area, and u_Coa as meridional speed.
+                // A straight exit edge normal to this flow generates a conical
+                // annular surface of area pi*(r_h+r_s)*normal_span.
+                const double exit_angle = compressor_exit_meridional_angle_deg*M_PI/180.;
+                const double exit_cos = std::cos(exit_angle);
+                const double normal_span = A_Co/(2*M_PI*R_Com);
+                const double exit_radial_span = normal_span*exit_cos;
+                const double exit_axial_span = -normal_span*std::sin(exit_angle);
+                const double exit_hub = R_Com-0.5*exit_radial_span;
+                const double exit_shroud = R_Com+0.5*exit_radial_span;
+                annulus("Compressor outlet",exit_hub,exit_shroud);
+                // This is a surface projection, not the flow-normal passage area
+                // or the area of an equivalent axial cut through parallel walls.
+                cad.erase("[m^2] Compressor outlet annulus area");
+                cad["[m^2] Compressor outlet axial projected exit area"] = A_Co*exit_cos;
+                cad["[m^2] Compressor outlet flow-normal area"] = A_Co;
+                cad["[m] Compressor outlet flow-normal passage width"] = normal_span;
+                cad["[m] Compressor outlet hub axial offset from midpoint"] = -0.5*exit_axial_span;
+                cad["[m] Compressor outlet shroud axial offset from midpoint"] = 0.5*exit_axial_span;
+                cad["[deg] Compressor outlet assumed meridional exit angle"] = compressor_exit_meridional_angle_deg;
+                annulus("Compressor outlet equivalent shaft-normal section",
+                    R_Com-0.5*normal_span/exit_cos,R_Com+0.5*normal_span/exit_cos);
+                cad["[m] Compressor outlet optimizer reference hub radius"] = R_Coh;
+                cad["[m] Compressor outlet optimizer reference shroud radius"] = R_Cot;
                 annulus("HPT inlet",R_Tih,R_Tit);
                 annulus("HPT outlet",R_Toh,R_Tot);
                 rotor_angles("Compressor inlet",omega,R_Cih,R_Cit,u_i,0.);
-                rotor_angles("Compressor outlet",omega,R_Coh,R_Cot,u_Coa,R_Com*u_Coth_STAT);
+                rotor_angles("Compressor outlet",omega,exit_hub,exit_shroud,
+                    u_Coa,R_Com*u_Coth_STAT,compressor_exit_meridional_angle_deg);
                 cad["[rad/s] Compressor shaft speed"] = omega;
                 cad["[rpm] Compressor shaft speed"] = omega*60./(2*M_PI);
                 cad["[rad/s] HPT shaft speed"] = omega;
