@@ -786,8 +786,8 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             ret.insert(ret.end(), {lpt_mach.inlet_shroud-0.8,lpt_mach.outlet_shroud-0.9});
 
         // Append one geometry heuristic per turbine.
-        ret.push_back(con_HPT_migration);
-        if (aft_fan_) ret.push_back(con_LPT_migration);
+        ret.push_back(0.*con_HPT_migration);
+        if (aft_fan_) ret.push_back(0.*con_LPT_migration);
 
         if (invalid_ret(ret)) return penalty();
 
