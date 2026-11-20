@@ -678,7 +678,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double R_6 = std::pow((m_dot*(1+f))/(u_6*(Ps_0/(R*Ts_6)))/M_PI,0.5);
         double F_core = m_dot*((1+f)*u_6 - u_0);
         double F = F_core + F_fan;
-        double con_F = 445.-F; // Thrust at least 100lbf
+        double con_F = (667.233)-F; // Thrust at least 150lbf
         // Mass model
         double m_Compressor_conical = std::abs((M_PI*(R_Cih*R_Cih*R_Cih - R_Coh*R_Coh*R_Coh)))*(rho_C/3);
         double m_Compressor_prismatic = (R_Cot - R_Coh)*M_PI*R_Coh*R_Coh
