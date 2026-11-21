@@ -9,11 +9,6 @@
 #include <string>
 #include <cmath>
 #include <stdexcept>
-#include <iosfwd>
-
-// Deterministic, component-grouped presentation of the optional diagnostics.
-void print_jet_inspection(std::ostream& stream,
-                          const std::unordered_map<std::string,double>& results);
 
 
 #include <boost/math/tools/roots.hpp>
@@ -41,13 +36,6 @@ struct problem_jet_calc{
         double eta_fan = 0.85;
         // User-selected fan inlet relative tip Mach limit.
         double M_max_fan = 1.2;
-        // Inspection-only mixed-flow layout. Positive angles point radially outward
-        // from axial. Reinterpret A_Co as flow-normal area and u_Coa as meridional
-        // speed for CAD; the optimizer's original meanline model is unchanged.
-        static constexpr double compressor_exit_meridional_angle_deg = 55.0;
-        static_assert(compressor_exit_meridional_angle_deg > -90.0 &&
-                      compressor_exit_meridional_angle_deg < 90.0,
-                      "Compressor CAD exit angle must lie strictly between -90 and 90 degrees");
         // Non-varying parameters
         // Define things like environment parameters and compenent efficiencies here
         // Physical bounds in design-vector order. Optimizer coordinates are in [0, 1]:
@@ -71,7 +59,7 @@ struct problem_jet_calc{
         static constexpr double Ts_0 = 298.;
         static constexpr double Ps_0 = 101325.;
         static constexpr double Ps_6 = Ps_0;
-        static constexpr double u_0 = 0.;
+        static constexpr double u_0 = 140.;
 
         static constexpr double h_ker = 43e+6;
 
@@ -89,8 +77,17 @@ struct problem_jet_calc{
         static constexpr double rho_C = 4450.;// Ti6Al4V
         static constexpr double sigma_max_T = 600000000.;// 600MPa for Inconel 718 at 1100K, source: https://www.vdm-metals.com/fileadmin/user_upload/Downloads/Data_Sheets/Data_Sheet_VDM_Alloy_718.pdf
         static constexpr double sigma_max_C = 880000000.;// 880MPa for Ti6Al4V
-        static constexpr double FOS_T = 1.5;
+        static constexpr double FOS_T = 1;
         static constexpr double FOS_C = 1.5;
+
+        //for mass model
+        static constexpr double AR = 1.5;
+        static constexpr double z_target = 0.85;
+        static constexpr double burst_margin  = 1.3;
+        static constexpr double FOS_hpt = 1;
+        static constexpr double sigma_UTS = 400e6;
+        static constexpr double blade_t_thick_ratio = 0.15;
+        static constexpr double scalar_hpt = 5;
         vector_double::size_type get_nec() const;
         vector_double::size_type get_nic() const;
         vector_double fitness(const vector_double &x, std::unordered_map<std::string,double> *results_ptr = nullptr) const;
