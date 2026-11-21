@@ -22,7 +22,7 @@ constexpr double hp_bearing_bleed = 0.02;
 constexpr double lp_forward_bearing_bleed = 0.01;
 constexpr double lp_rear_bearing_bleed = 0.01;
 // Radial clearance reserved for the seal between LPT outlet tip and fan hub.
-constexpr double lpt_fan_seal_gap = 0.005; // m; not an axial gap
+constexpr double lpt_fan_seal_gap = 0.0031; // m; not an axial gap
 
 // Perfect total-enthalpy mixing with constant species heat capacities and common R.
 // Return air remains at T3: bearing heat pickup/windage is not included.
@@ -620,7 +620,8 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             if (!turbine_span_mach(lpt_mach,omega_LPT,R_LPTih,R_LPTit,R_LPToh,R_LPTot,
                                   u_LPTith_STAT,u_LPTia,u_LPToa,T_LPTin,T_6,cp_LPT,gamma_LPT,R,u_LPTia_NGV,T_5,cp_HPT,gamma_HPT))
                 return penalty();
-            con_LPT_migration = (R_LPTih-R_LPToh)*(R_LPTit-R_LPTot)/(0.01*0.01);
+            // con_LPT_migration = (R_LPTih-R_LPToh)*(R_LPTit-R_LPTot)/(0.01*0.01);
+            con_LPT_migration = std::abs(R_LPTit-R_LPTot);
             M_LPToa = u_LPToa/std::sqrt(gamma_LPT*R*Ts_LPTo);
             beta_LPTom = 180./M_PI*std::atan2(omega_LPT*R_LPTom,u_LPToa);
             // Angle limits remain diagnostic-only for both turbines, as in main.
@@ -787,7 +788,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
 
         // Append one geometry heuristic per turbine.
         ret.push_back(0.*con_HPT_migration);
-        if (aft_fan_) ret.push_back(0.*con_LPT_migration);
+        if (aft_fan_) ret.push_back(con_LPT_migration);
 
         if (invalid_ret(ret)) return penalty();
 
