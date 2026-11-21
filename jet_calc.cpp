@@ -482,146 +482,170 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double m_Turbine_conical = std::abs((M_PI*(R_Tih*R_Tih*R_Tih - R_Toh*R_Toh*R_Toh)))*(rho_T/3);
         double m_Turbine_prismatic = (R_Tot - R_Toh)*M_PI*R_Tot*R_Tot
             * rho_T; // volume in m^3 -> mass in kg
-        double mass_disk = 0, mass_blades = 0, mass_hpt = 0;
-        bool disk_mass_valid = false;
-// Outer scope (already in your code):
-//   double mass_disk = 0, mass_blades = 0, mass_hpt = 0;
-//   bool disk_mass_valid = false;
-//
-// Reporting only (recommended): gate on results_ptr so the optimizer never pays for it.
-// If disk mass must feed the objective, remove the `if (results_ptr)` gate and use mass_hpt.
-        if (results_ptr) {
-        do {
-            const double pi = M_PI;
 
-            // ---------- velocity triangles / blade count ----------
-            const double U_in = omega * R_Tim, U_out = omega * R_Tom;
-            const double wtheta_in  = u_Tith_STAT - U_in;
-            const double wtheta_out = -U_out;
-            const double a = std::atan2(wtheta_in,  u_Tia);   // rad
-            const double b = std::atan2(wtheta_out, u_Toa);   // rad
+        // ---------------------------------------------------------------------
+        // HPT bottom-up mass: rotor (disk + blades) + stator/NGV (vanes + ring).
+        // Runs every evaluation (not gated on results_ptr) because it feeds m_Turbine.
+        // ---------------------------------------------------------------------
+        double mass_disk = 0, mass_blades = 0, mass_hpt = 0;      // rotor disk, rotor blades, total
+        double mass_ring_stat = 0, mass_blades_stat = 0;          // stator ring, stator vanes
+        bool disk_mass_valid = false;
+        bool stator_sized = false;   // stator row sized OK (independent of the rotor)
+        {
+            const double pi = M_PI;
             const double h = R_Tit - R_Tih;
             const double c_axial = h / AR;
 
-            // abs(): original let a negative factor give a negative spacing and silently force B = 1
-            const double factor = std::abs((wtheta_in / wtheta_out - 1.0) * std::sin(2.0 * b));
-            if (!(factor > 1e-6)) break;                       // also catches NaN
-            const double spacing = (z_target / factor) * c_axial;
-            const double B_est = 2.0 * pi * R_T_mean / spacing;
-            if (!std::isfinite(B_est)) break;
-            const int B = std::max(1, static_cast<int>(std::round(B_est)));
+            // ---------- row blade count + blade area (shared by stator and rotor) ----------
+            // Zweifel spacing from the row's inlet/outlet tangential velocities in the
+            // frame of the row (relative for the rotor, absolute for the stationary NGV).
+            struct Blades { double A_b = 0.; int B = 0; bool ok = false; };
+            const auto size_blades = [&](double wth_in, double ua_in, double wth_out,
+                                         double ua_out, double r_spacing) -> Blades {
+                Blades r;
+                const double a = std::atan2(wth_in,  ua_in);   // rad
+                const double b = std::atan2(wth_out, ua_out);  // rad
+                // abs(): original let a negative factor give a negative spacing and silently force B = 1
+                const double factor = std::abs((wth_in / wth_out - 1.0) * std::sin(2.0 * b));
+                if (!(factor > 1e-6)) return r;                // also catches NaN
+                const double spacing = (z_target / factor) * c_axial;
+                const double B_est = 2.0 * pi * r_spacing / spacing;
+                if (!std::isfinite(B_est)) return r;
+                r.B = std::max(1, static_cast<int>(std::round(B_est)));
 
-            // ---------- blade camber line + thickness (stack arrays, 41 pts) ----------
-            constexpr int N = 41;
-            std::array<double, N> x, y, th;
-            std::array<double, 2*N> ox, oy;
-            const bool straight = std::abs(b - a) < 1e-8;
-            const double den_ab = std::sin(b) - std::sin(a);
-            for (int i = 0; i < N; ++i) {
-                const double q = double(i) / (N - 1);
-                th[i] = a + (b - a) * q;
-                x[i] = straight ? c_axial * q : c_axial * (std::sin(th[i]) - std::sin(a)) / den_ab;
-                y[i] = straight ? x[i] * std::tan(a) : c_axial * (std::cos(a) - std::cos(th[i])) / den_ab;
-            }
-            const double chord = std::hypot(x[N-1], y[N-1]);
-            for (int i = 0; i < N; ++i) {
-                const double q = double(i) / (N - 1);
-                const double t = std::max(0.0, 5 * blade_t_thick_ratio * chord *
-                    (0.2969*std::sqrt(q) - 0.1260*q - 0.3516*q*q + 0.2843*q*q*q - 0.1036*q*q*q*q));
-                ox[i]       = x[i] - t*std::sin(th[i]);  oy[i]       = y[i] + t*std::cos(th[i]);
-                ox[2*N-1-i] = x[i] + t*std::sin(th[i]);  oy[2*N-1-i] = y[i] - t*std::cos(th[i]);
-            }
-            double A_b = 0.0;
-            for (int i = 0; i < 2*N; ++i) {
-                const int j = (i + 1) % (2*N);
-                A_b += ox[i]*oy[j] - oy[i]*ox[j];
-            }
-            A_b = 0.5 * std::abs(A_b);
-            if (!std::isfinite(A_b)) break;
-
-            // ---------- disk sizing ----------
-            const double W0 = c_axial;
-            const double T0 = 0.03 * R_Tih;
-            const double r_I = 0.06 * R_Tih;
-            const double sigma = sigma_UTS / (burst_margin * burst_margin * FOS_hpt);
-            const double sigma_b = 0.5 * rho_T * omega*omega * (R_Tit*R_Tit - R_Tih*R_Tih);
-            const double z_H = W0*T0/R_Tih * (omega*omega*R_Tih*R_Tih*rho_T/sigma
-                            + A_b*B/(2*pi*W0*T0) * sigma_b/sigma - 1.0);
-            if (!(z_H > 0.0) || !std::isfinite(z_H)) break;
-
-            // Uniform-stress profile evaluated directly (replaces the 200-pt table + interpolation)
-            const double k = rho_T * omega*omega / (2*sigma);
-            const auto z_at = [&](double r) { return z_H * std::exp(k * (R_Tih*R_Tih - r*r)); };
-
-            const double z_I = z_at(r_I);
-            const double den = 1.0 - omega*omega*r_I*r_I*rho_T/sigma;
-            if (!(den > 1e-3)) break;
-            const double inner_rim_area = z_I * r_I / den;
-            const double W_I = 1.25 * z_I;
-            const double T_I = inner_rim_area / W_I;
-            const double r_lo = r_I + T_I, r_hi = R_Tih - T0;
-            if (!std::isfinite(T_I) || std::min({W0, T0, W_I, T_I}) <= 0.0 || r_lo >= r_hi) break;
-
-            // ---------- fillets ----------
-            const double fillet_radius = 0.0025; // 2.5 mm
-            const double f_inner = std::min({fillet_radius, W_I/2 - z_at(r_lo)/2, 0.45*(r_hi - r_lo)});
-            const double f_outer = std::min({fillet_radius, W0/2  - z_at(r_hi)/2, 0.45*(r_hi - r_lo)});
-            if (!std::isfinite(f_inner) || !std::isfinite(f_outer) || std::min(f_inner, f_outer) <= 0.0) break;
-
-            const auto width_at = [&](double radius) {
-                double w = z_at(radius);
-                const double di = radius - r_lo, dout = r_hi - radius;
-                if (di <= f_inner)
-                    w += 2*(f_inner - std::sqrt(std::max(0.0, f_inner*f_inner - (f_inner - di)*(f_inner - di))));
-                if (dout <= f_outer)
-                    w += 2*(f_outer - std::sqrt(std::max(0.0, f_outer*f_outer - (f_outer - dout)*(f_outer - dout))));
-                return w;
-            };
-
-            // ---------- integration: three contiguous, already-sorted segments (no sort/unique) ----------
-            double disk_section_area = W_I*T_I + W0*T0;
-            double volume = pi * (W_I*(r_lo*r_lo - r_I*r_I) + W0*(R_Tih*R_Tih - r_hi*r_hi));
-            const auto integrate = [&](double lo, double hi, int n) {
-                double r_prev = lo, w_prev = width_at(lo);
-                for (int i = 1; i <= n; ++i) {
-                    const double r_cur = lo + (hi - lo) * i / n;
-                    const double w_cur = width_at(r_cur);
-                    const double dr = r_cur - r_prev;
-                    disk_section_area += 0.5*(w_prev + w_cur)*dr;
-                    volume += pi*(r_prev*w_prev + r_cur*w_cur)*dr;
-                    r_prev = r_cur; w_prev = w_cur;
+                // blade camber line + thickness (stack arrays, 41 pts)
+                constexpr int N = 41;
+                std::array<double, N> x, y, th;
+                std::array<double, 2*N> ox, oy;
+                const bool straight = std::abs(b - a) < 1e-8;
+                const double den_ab = std::sin(b) - std::sin(a);
+                for (int i = 0; i < N; ++i) {
+                    const double q = double(i) / (N - 1);
+                    th[i] = a + (b - a) * q;
+                    x[i] = straight ? c_axial * q : c_axial * (std::sin(th[i]) - std::sin(a)) / den_ab;
+                    y[i] = straight ? x[i] * std::tan(a) : c_axial * (std::cos(a) - std::cos(th[i])) / den_ab;
                 }
+                const double chord = std::hypot(x[N-1], y[N-1]);
+                for (int i = 0; i < N; ++i) {
+                    const double q = double(i) / (N - 1);
+                    const double t = std::max(0.0, 5 * blade_t_thick_ratio * chord *
+                        (0.2969*std::sqrt(q) - 0.1260*q - 0.3516*q*q + 0.2843*q*q*q - 0.1036*q*q*q*q));
+                    ox[i]       = x[i] - t*std::sin(th[i]);  oy[i]       = y[i] + t*std::cos(th[i]);
+                    ox[2*N-1-i] = x[i] + t*std::sin(th[i]);  oy[2*N-1-i] = y[i] - t*std::cos(th[i]);
+                }
+                double A = 0.0;
+                for (int i = 0; i < 2*N; ++i) {
+                    const int j = (i + 1) % (2*N);
+                    A += ox[i]*oy[j] - oy[i]*ox[j];
+                }
+                r.A_b = 0.5 * std::abs(A);
+                r.ok = std::isfinite(r.A_b) && r.A_b > 0.;
+                return r;
             };
-            integrate(r_lo,           r_lo + f_inner, 40);   // inner fillet (dense)
-            integrate(r_lo + f_inner, r_hi - f_outer, 200);  // web
-            integrate(r_hi - f_outer, r_hi,           40);   // outer fillet (dense)
 
-            mass_disk   = volume * rho_T;                    // writes the OUTER variables (no shadowing)
-            mass_blades = A_b * h * B * rho_T;
-            mass_hpt    = mass_disk + mass_blades;
-            disk_mass_valid = std::isfinite(mass_hpt);
-        } while (false);
+            // ---------- ROTOR (original calcs preserved) ----------
+            const double U_in = omega * R_Tim, U_out = omega * R_Tom;
+            const Blades rot = size_blades(u_Tith_STAT - U_in, u_Tia, -U_out, u_Toa, R_T_mean);
+
+            // ---------- STATOR (NGV): axial in, beta_NGV out, stationary ----------
+            const Blades stat = size_blades(0.0, u_Tia, u_Tith_STAT, u_Tia, R_Tim);
+
+            bool rotor_ok = false;
+            if (rot.ok) do {
+                const double A_b = rot.A_b;
+                const int B = rot.B;
+
+                // ---------- rotor disk sizing ----------
+                const double W0 = c_axial;
+                const double T0 = 0.03 * R_Tih;
+                const double r_I = 0.06 * R_Tih;
+                const double sigma = sigma_UTS / (burst_margin * burst_margin * FOS_hpt);
+                const double sigma_b = 0.5 * rho_T * omega*omega * (R_Tit*R_Tit - R_Tih*R_Tih);
+                const double z_H = W0*T0/R_Tih * (omega*omega*R_Tih*R_Tih*rho_T/sigma
+                                + A_b*B/(2*pi*W0*T0) * sigma_b/sigma - 1.0);
+                if (!(z_H > 0.0) || !std::isfinite(z_H)) break;
+
+                // Uniform-stress profile evaluated directly
+                const double k = rho_T * omega*omega / (2*sigma);
+                const auto z_at = [&](double r) { return z_H * std::exp(k * (R_Tih*R_Tih - r*r)); };
+
+                const double z_I = z_at(r_I);
+                const double den = 1.0 - omega*omega*r_I*r_I*rho_T/sigma;
+                if (!(den > 1e-3)) break;
+                const double inner_rim_area = z_I * r_I / den;
+                const double W_I = 1.25 * z_I;
+                const double T_I = inner_rim_area / W_I;
+                const double r_lo = r_I + T_I, r_hi = R_Tih - T0;
+                if (!std::isfinite(T_I) || std::min({W0, T0, W_I, T_I}) <= 0.0 || r_lo >= r_hi) break;
+
+                // fillets
+                const double fillet_radius = 0.0025; // 2.5 mm
+                const double f_inner = std::min({fillet_radius, W_I/2 - z_at(r_lo)/2, 0.45*(r_hi - r_lo)});
+                const double f_outer = std::min({fillet_radius, W0/2  - z_at(r_hi)/2, 0.45*(r_hi - r_lo)});
+                if (!std::isfinite(f_inner) || !std::isfinite(f_outer) || std::min(f_inner, f_outer) <= 0.0) break;
+
+                const auto width_at = [&](double radius) {
+                    double w = z_at(radius);
+                    const double di = radius - r_lo, dout = r_hi - radius;
+                    if (di <= f_inner)
+                        w += 2*(f_inner - std::sqrt(std::max(0.0, f_inner*f_inner - (f_inner - di)*(f_inner - di))));
+                    if (dout <= f_outer)
+                        w += 2*(f_outer - std::sqrt(std::max(0.0, f_outer*f_outer - (f_outer - dout)*(f_outer - dout))));
+                    return w;
+                };
+
+                // integration: three contiguous segments
+                double volume = pi * (W_I*(r_lo*r_lo - r_I*r_I) + W0*(R_Tih*R_Tih - r_hi*r_hi));
+                const auto integrate = [&](double lo, double hi, int n) {
+                    double r_prev = lo, w_prev = width_at(lo);
+                    for (int i = 1; i <= n; ++i) {
+                        const double r_cur = lo + (hi - lo) * i / n;
+                        const double w_cur = width_at(r_cur);
+                        volume += pi*(r_prev*w_prev + r_cur*w_cur)*(r_cur - r_prev);
+                        r_prev = r_cur; w_prev = w_cur;
+                    }
+                };
+                integrate(r_lo,           r_lo + f_inner, 40);   // inner fillet (dense)
+                integrate(r_lo + f_inner, r_hi - f_outer, 200);  // web
+                integrate(r_hi - f_outer, r_hi,           40);   // outer fillet (dense)
+
+                mass_disk   = volume * rho_T;
+                mass_blades = A_b * h * B * rho_T;
+                rotor_ok = std::isfinite(mass_disk + mass_blades);
+            } while (false);
+
+            // Stator: vanes + static hub rim ring (same W0 x T0 section as the rotor rim,
+            // no burst sizing because the stator does not rotate).
+            bool stator_ok = false;
+            if (stat.ok) {
+                const double W0 = c_axial, T0 = 0.03 * R_Tih;
+                mass_ring_stat   = W0 * T0 * 2*pi*(R_Tih - 0.5*T0) * rho_T;
+                mass_blades_stat = stat.A_b * h * stat.B * rho_T;
+                stator_ok = std::isfinite(mass_ring_stat + mass_blades_stat);
+            }
+
+            // Both rows must size, otherwise report zeros and fall back to the envelope estimate.
+            stator_sized = stator_ok;
+            disk_mass_valid = rotor_ok && stator_ok;
+            if (!rotor_ok)  { mass_disk = mass_blades = 0.; }
+            if (!stator_ok) { mass_ring_stat = mass_blades_stat = 0.; }
+            mass_hpt = mass_disk + mass_blades + mass_ring_stat + mass_blades_stat;
         }
-// Then, if you want it reported:
-//   if (disk_mass_valid) { (*results_ptr)["[kg] HPT disk mass"] = mass_disk; ... }
-// Needs #include <array> at the top of the file.
+
         ///Mass model HPT
-
-
-
-
-        double m_Turbine = std::max(m_Turbine_conical, m_Turbine_prismatic);
-        double approx_m = mass_hpt * 2;
-        //m_Turbine = mass_hpt;
+        // Bottom-up HPT mass (rotor + stator) when valid; otherwise the old envelope estimate.
+        double m_Turbine_env = std::max(m_Turbine_conical, m_Turbine_prismatic);
+        double m_Turbine = disk_mass_valid ? mass_hpt : m_Turbine_env;
+        double approx_m = mass_hpt;
 
         // Diffuser mass proportional to spec speed and component radius squared
         double m_Diffuser = (0.07146/(0.03*0.03))*(R_Com*R_Com)*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4))*(0.4/(spec_speed_C<0.4?spec_speed_C:0.4));
         double m_NGV = (0.2885/(0.0315287*0.0315287))*(R_Tit*R_Tit);
+        // Stator vanes are already inside mass_hpt when the bottom-up model is valid.
+        double m_NGV_term = disk_mass_valid ? 0. : m_NGV;
 
         double m_Duct = 2*M_PI*R_Com*R_Com*0.001*2700;
         double m_Nozzle = 2*M_PI*R_Tit*R_Tot*0.001*8000;
-
-        ///Implement turbien mass code here
 
         double len_Combustor = u_Tia * 0.0005 + 0.01;
         double m_Shaft = (len_Combustor+R_Com+0.02) * M_PI * 0.005 * 0.005 * 8000;
@@ -640,7 +664,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double m_nozzle = M_PI*(std::abs(R_6*R_6 - R_LPTot*R_LPTot))*1.414*0.0015*rho_T;
 
         double m_total = 1.12*(m_Compressor + m_Turbine+
-                        m_Diffuser + m_NGV + m_Duct+
+                        m_Diffuser + m_NGV_term + m_Duct+
                         (aft_fan_ ? m_nozzle : m_Nozzle)+m_Shaft+m_Wall+m_Combustor
                         +(aft_fan_ ? m_LPT+m_LPTNGV+m_transition+m_fan : 0.));
 
@@ -791,9 +815,16 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                 (*results_ptr)["[] Turbine flow coefficient"] = phi_T;
                 (*results_ptr)["[] Compressor work coefficient"] = psi_C;
                 (*results_ptr)["[] Turbine work coefficient"] = psi_T;
-                (*results_ptr)["[kg] HPT disk mass"] = mass_disk;
-                (*results_ptr)["[kg] HPT blades mass"] = mass_blades;
+                (*results_ptr)["[kg] HPT rotor disk mass"] = mass_disk;
+                (*results_ptr)["[kg] HPT rotor blades mass"] = mass_blades;
+                (*results_ptr)["[kg] HPT stator ring mass"] = mass_ring_stat;
+                (*results_ptr)["[kg] HPT stator vanes mass"] = mass_blades_stat;
                 (*results_ptr)["[kg] HPT total mass"] = approx_m;
+                (*results_ptr)["[0/1] HPT mass model valid"] = disk_mass_valid ? 1. : 0.;
+                (*results_ptr)["[0/1] HPT stator sizing computed"] = stator_sized ? 1. : 0.;
+                // The stator is in m_total only when the whole bottom-up model is used
+                // (and the empirical m_NGV term is dropped in that case).
+                (*results_ptr)["[0/1] HPT stator sizing used in mass"] = disk_mass_valid ? 1. : 0.;
                 (*results_ptr)["[kg] T total mass"] = m_Turbine;
             }
         return ret;
