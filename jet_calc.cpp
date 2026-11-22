@@ -714,7 +714,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double m_LPT_prismatic = 0.67 * ((R_LPTot-R_LPToh)+(R_LPTih - R_LPToh))*M_PI*R_LPTot*R_LPTot*rho_T;
         double m_LPT = std::max(m_LPT_conical,m_LPT_prismatic);
         double m_LPTNGV = (0.2885/(0.0315287*0.0315287))*R_LPTit*R_LPTit;
-        double m_transition = M_PI*(std::abs(R_LPTit*R_LPTit - R_Tot*R_Tot)+std::abs(R_LPTih*R_LPTih - R_Toh*R_Toh))*1.414*0.0015*rho_T;
+        double m_transition = M_PI*(std::abs(R_LPTit*R_LPTit - R_Tot*R_Tot)+std::abs(R_LPTih*R_LPTih - R_Toh*R_Toh))*1.414*0.003*rho_T;
         double m_fan = M_PI*(R_fan*R_fan - R_fan_hub*R_fan_hub)*0.0015*rho_T;
         double m_nozzle = M_PI*(std::abs(R_6*R_6 - R_LPTot*R_LPTot))*1.414*0.0015*rho_T;
 
