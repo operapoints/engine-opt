@@ -1,75 +1,75 @@
 Rank 1:
 Source: Island champion
-Score: 6.3675183863263181
+Score: 6.4788555372614667
 Design vector (SI units): 
 {
-  1: 10490.62121608129,
-  2: 189.00873610535643,
-  3: 1100,
-  4: 0.014999999999999999,
-  5: 0.033891066841755343,
-  6: 0.0025151048421868565,
-  7: 0.05249103888460064,
-  8: 162.35763537702675,
-  9: 0.031079445227870071,
-  10: 0.04305234114505177,
-  11: 0.00278839018491277,
-  12: 0.031144674988089056,
-  13: -59.293258816584682,
-  14: 3232.138400881468,
-  15: 0.0054597335450683763,
-  16: 0.065348625767239807,
-  17: 189.05166116797329,
-  18: 0.030366131303767387,
-  19: 0.053582388184109958,
-  20: 0.071997147993157484
+  1: 9721.7658008043509,
+  2: 185.88554649922028,
+  3: 1098.1809558083671,
+  4: 0.015262976659889561,
+  5: 0.036369794043053766,
+  6: 0.0031462161021435539,
+  7: 0.0568699804100972,
+  8: 163.36311813364946,
+  9: 0.033981496011443936,
+  10: 0.046721396533507202,
+  11: 0.0032468755938605694,
+  12: 0.033319062552871398,
+  13: -47.534683638533039,
+  14: 3234.1367544806185,
+  15: 0.0065939136657987736,
+  16: 0.063982515624952788,
+  17: 186.21141105416828,
+  18: 0.025276478438324628,
+  19: 0.046408338807874649,
+  20: 0.068753433096799016
 }
 Constraints:
 {
-  1: -0.023075738325073303,
-  2: -5.7534331388357592e-10,
-  3: 1.0736987057023063e-10,
-  4: -0.038649911558698916,
-  5: 1.8189516559630192e-10,
-  6: -0.1268859170598986,
-  7: -0.030703152744081752,
-  8: -0.048678089317071377,
-  9: -0.00127053388947862,
-  10: -0.32545454453153227,
-  11: -0.17435105455922484,
-  12: -4.7178344564358099e-10,
-  13: -0.27815350601394462,
-  14: -6.368567895265187e-10,
-  15: -0.29728959171816999,
-  16: -0.52491800401677868,
-  17: -4.0040169936010326,
-  18: -0.54075794477388217,
-  19: -0.5859440932436657,
-  20: -9.0980529785156251e-12,
-  21: -1.0557413101196289e-11,
-  22: 1.1578470093809302e-09,
-  23: -0.76124730125818796,
-  24: -0.35525647760395107,
-  25: -1.8236184784470311e-10,
-  26: -0.49586554464352939,
-  27: 5.3866244797973195e-11,
-  28: -0.038334363379085579,
-  29: -4.4364843262221189e-09,
-  30: -0.03687340439544344,
-  31: -10.940020708311973,
-  32: -0.42449589349772293,
-  33: -6.4637968588687755e-10,
-  34: -0.22387801477972802,
-  35: -0.39031223895188499,
-  36: -0.94147598090475271,
-  37: -0.42970444513598816,
-  38: -3.5121369361877442e-10,
-  39: -0.40729929751242144,
-  40: -3.0327740319080476e-10,
-  41: -0.5636303422466804,
-  42: -0.37041276515595079,
+  1: -7.2190531692837922e-05,
+  2: -0.020755441990438835,
+  3: -9.4873603922513376e-15,
+  4: -0.02789759528430337,
+  5: -0.010749569586659957,
+  6: -0.13118469912093778,
+  7: -0.036465329454253292,
+  8: -0.052467518504179633,
+  9: -0.0067686283103294276,
+  10: -0.33391243860386249,
+  11: -0.17806701532552882,
+  12: -0.0028101387451617277,
+  13: -0.28387455647885118,
+  14: 4.75175454539567e-14,
+  15: -0.37399005220632664,
+  16: -0.65093289178632485,
+  17: -4.3128796187879548,
+  18: -0.53623649645171578,
+  19: -0.56409953851004668,
+  20: -0.003115072539275527,
+  21: 4.172325134277344e-15,
+  22: 2.3192114895209669e-14,
+  23: -0.42334810724329874,
+  24: -0.43948359344710392,
+  25: 2.2759572004815709e-15,
+  26: -0.33080303686606949,
+  27: -0.29997753297699736,
+  28: -0.084171620115866208,
+  29: -0.70818617092283398,
+  30: -0.057212683191640613,
+  31: -10.356283224315387,
+  32: -0.46132692517774287,
+  33: -0.012514400087871372,
+  34: -0.27012629516225772,
+  35: -0.39715822508261622,
+  36: -1.3345094288924366,
+  37: -0.74021990067516863,
+  38: 1.1920928955078125e-15,
+  39: -0.40646832468307215,
+  40: -0.0025576358638341734,
+  41: -0.5733835679401279,
+  42: -0.39281457777376216,
   43: 0,
-  44: -1.2166876088358985e-11
+  44: 0
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Further details
@@ -98,427 +98,427 @@ CAD inspection conventions
 
 === Performance and mass flows ===
   -- Power, flow and other quantities --
-    [kg/s] Core air mass flow : 0.55710249525961231
-    [N] Core thrust : 216.25908504783331
-    [kg/s] Fuel mass flow : 0.0093412395080007017
-    [kg/s] HP bearing return mass flow : 0.011142049905192247
-    [kg/s] LP forward bearing return mass flow : 0.0055710249525961235
-    [kg/s] LP rear bearing return mass flow : 0.0055710249525961235
-    [s] Specific impulse : 7283.741903774564
-    [N] Total thrust : 667.23299942107644
+    [kg/s] Core air mass flow : 0.64985558102382068
+    [N] Core thrust : 276.46600665945812
+    [kg/s] Fuel mass flow : 0.010851466784828115
+    [kg/s] HP bearing return mass flow : 0.012997111620476414
+    [kg/s] LP forward bearing return mass flow : 0.0064985558102382069
+    [kg/s] LP rear bearing return mass flow : 0.0064985558102382069
+    [s] Specific impulse : 6270.0443217298962
+    [N] Total thrust : 667.23299999998835
   -- Mass estimates --
-    [kg] Total mass : 6.3675183863263181
+    [kg] Total mass : 6.4788555372614667
 
 === Station thermodynamics (total/static as labeled) ===
     [Pa] P_0 (ambient) : 101325
     [K] T_0 (ambient) : 298
-    [Pa] Compressor inlet static pressure : 81694.924575595462
-    [K] Compressor inlet static temperature : 280.2178684299929
+    [Pa] Compressor inlet static pressure : 82291.167605769122
+    [K] Compressor inlet static temperature : 280.8006787469817
     [Pa] Compressor inlet total pressure : 101325
     [K] Compressor inlet total temperature : 298
-    [Pa] Compressor outlet static pressure : 259499.08286981756
-    [K] Compressor outlet static temperature : 411.63505775830492
-    [Pa] P_3 (compressor discharge) : 383863.05128648423
-    [K] T_3 (compressor discharge) : 460.35763537702678
-    [Pa] Bearing bleed supply total pressure : 383863.05128648423
-    [K] Bearing coolant total temperature : 460.35763537702678
-    [Pa] P_4 (combustor discharge) : 360831.26820929517
-    [K] T_4 (combustor discharge) : 1100
-    [K] HPT NGV exit static temperature (hub) : 960.37271883400501
-    [K] HPT NGV exit static temperature (mean) : 994.85664748800502
-    [K] HPT NGV exit static temperature (tip) : 1015.984965497595
-    [Pa] HPT mixed inlet static pressure : 245139.01386848022
-    [K] HPT mixed inlet static temperature : 982.10504874944286
-    [K] HPT mixed inlet total temperature : 1088.0917984215848
-    [J/(kg K)] HPT mixture heat capacity : 1082.6226070891023
-    [K] HPT rotor inlet static temperature (hub) : 947.57016880940546
-    [K] HPT rotor inlet static temperature (mean) : 982.10504874944286
-    [K] HPT rotor inlet static temperature (tip) : 1003.2645846340376
-    [Pa] HPT outlet static pressure : 146847.34516227728
-    [K] HPT outlet static temperature : 882.47592726549897
-    [Pa] P_5 (turbine discharge) : 184083.36232588429
-    [K] T_5 (turbine discharge) : 936.96145146559172
-    [K] LPT NGV exit static temperature (hub) : 865.59264107887714
-    [K] LPT NGV exit static temperature (mean) : 882.81205254200063
-    [K] LPT NGV exit static temperature (tip) : 893.85870028605154
-    [Pa] LPT inlet static pressure : 146832.67114252294
-    [K] LPT inlet static temperature : 878.27496356743745
-    [K] LPT mixed inlet total temperature : 932.56590825935609
-    [J/(kg K)] LPT mixture heat capacity : 1081.8466324591391
-    [Pa] LPT outlet static pressure : 126804.35724728009
-    [K] LPT outlet static temperature : 855.00741581368254
-    [Pa] P_6 (LPT discharge) : 137321.36259322034
-    [K] T_6 (LPT discharge) : 873.27264944277135
-    [Pa] Core nozzle inlet total pressure : 137321.36259322034
-    [K] Core nozzle inlet total temperature : 869.49928519652713
-    [J/(kg K)] Core nozzle mixture heat capacity : 1081.0859213893877
+    [Pa] Compressor outlet static pressure : 262733.42442494794
+    [K] Compressor outlet static temperature : 413.18676494230004
+    [Pa] P_3 (compressor discharge) : 386503.09623077925
+    [K] T_3 (compressor discharge) : 461.36311813364944
+    [Pa] Bearing bleed supply total pressure : 386503.09623077925
+    [K] Bearing coolant total temperature : 461.36311813364944
+    [Pa] P_4 (combustor discharge) : 363312.9104569325
+    [K] T_4 (combustor discharge) : 1098.1809558083671
+    [K] HPT NGV exit static temperature (hub) : 960.27137907832866
+    [K] HPT NGV exit static temperature (mean) : 993.57995414647678
+    [K] HPT NGV exit static temperature (tip) : 1014.2200073251149
+    [Pa] HPT mixed inlet static pressure : 247180.77313595769
+    [K] HPT mixed inlet static temperature : 980.88438909086017
+    [K] HPT mixed inlet total temperature : 1086.3245132094289
+    [J/(kg K)] HPT mixture heat capacity : 1082.6224959204264
+    [K] HPT rotor inlet static temperature (hub) : 947.52659593994304
+    [K] HPT rotor inlet static temperature (mean) : 980.88438909086017
+    [K] HPT rotor inlet static temperature (tip) : 1001.5549408376185
+    [Pa] HPT outlet static pressure : 147079.2163664253
+    [K] HPT outlet static temperature : 880.04796079305413
+    [Pa] P_5 (turbine discharge) : 184272.85407556361
+    [K] T_5 (turbine discharge) : 934.24763043808616
+    [K] LPT NGV exit static temperature (hub) : 871.85999116259143
+    [K] LPT NGV exit static temperature (mean) : 890.85854228117807
+    [K] LPT NGV exit static temperature (tip) : 901.3746918270931
+    [Pa] LPT inlet static pressure : 153811.29690118
+    [K] LPT inlet static temperature : 886.36344223283709
+    [K] LPT mixed inlet total temperature : 929.88608827241922
+    [J/(kg K)] LPT mixture heat capacity : 1081.8464690024277
+    [Pa] LPT outlet static pressure : 136674.34757213038
+    [K] LPT outlet static temperature : 867.2630569768171
+    [Pa] P_6 (LPT discharge) : 145855.6751060278
+    [K] T_6 (LPT discharge) : 882.3514046338862
+    [Pa] Core nozzle inlet total pressure : 145855.6751060278
+    [K] Core nozzle inlet total temperature : 878.50400108675501
+    [J/(kg K)] Core nozzle mixture heat capacity : 1081.0857077131329
     [Pa] Core nozzle exit static pressure : 101325
-    [K] Core nozzle exit static temperature : 802.0860825548674
-    [Pa] Fan discharge total pressure : 112707.71360568303
-    [K] Fan discharge total temperature : 308.82821625128872
+    [K] Core nozzle exit static temperature : 797.52442881459797
+    [Pa] Fan discharge total pressure : 114676.95596290019
+    [K] Fan discharge total temperature : 310.62127204337685
     [Pa] Fan nozzle exit static pressure : 101325
-    [K] Fan nozzle exit static temperature : 299.57556962778943
-    [K] Fan temperature rise : 10.828216251288739
-    [K] LPT rotor inlet static temperature (hub) : 861.04320116099404
-    [K] LPT rotor inlet static temperature (mean) : 878.27496356743745
-    [K] LPT rotor inlet static temperature (tip) : 889.32953472515749
+    [K] Fan nozzle exit static temperature : 299.82740377253242
+    [K] Fan temperature rise : 12.621272043376841
+    [K] LPT rotor inlet static temperature (hub) : 867.35126312960244
+    [K] LPT rotor inlet static temperature (mean) : 886.36344223283709
+    [K] LPT rotor inlet static temperature (tip) : 896.88713519212467
 
 === Compressor and diffuser ===
   -- Radii, areas and layout dimensions --
-    [m] Compressor diffuser outer radius (mass-model estimate) : 0.078456829087164018
-    [m^2] Compressor inlet annulus area : 0.0029015888345329103
-    [m] Compressor inlet hub radius : 0.014999999999999999
-    [m] Compressor inlet mean radius : 0.024445533420877671
-    [m] Compressor inlet radial span : 0.018891066841755344
-    [m] Compressor inlet shroud radius : 0.033891066841755343
-    [m^2] Compressor outlet axial projected exit area : 0.0014426048724307974
-    [m^2] Compressor outlet equivalent shaft-normal section annulus area : 0.0043849514777617813
-    [m] Compressor outlet equivalent shaft-normal section hub radius : 0.045843364179226895
-    [m] Compressor outlet equivalent shaft-normal section mean radius : 0.05249103888460064
-    [m] Compressor outlet equivalent shaft-normal section radial span : 0.01329534941074749
-    [m] Compressor outlet equivalent shaft-normal section shroud radius : 0.059138713589974384
-    [m^2] Compressor outlet flow-normal area : 0.0025151048421868565
-    [m] Compressor outlet flow-normal passage width : 0.0076258991350585271
-    [m] Compressor outlet hub axial offset from midpoint : 0.0031233854330124235
-    [m] Compressor outlet hub radius : 0.050304020859670943
-    [m] Compressor outlet mean radius : 0.05249103888460064
-    [m] Compressor outlet optimizer reference hub radius : 0.048678089317071377
-    [m] Compressor outlet optimizer reference shroud radius : 0.056303988452129902
-    [m] Compressor outlet radial span : 0.0043740360498593922
-    [m] Compressor outlet shroud axial offset from midpoint : -0.0031233854330124235
-    [m] Compressor outlet shroud radius : 0.054678056909530336
+    [m] Compressor diffuser outer radius (mass-model estimate) : 0.085542654276299895
+    [m^2] Compressor inlet annulus area : 0.003423718550747645
+    [m] Compressor inlet hub radius : 0.015262976659889561
+    [m] Compressor inlet mean radius : 0.025816385351471662
+    [m] Compressor inlet radial span : 0.021106817383164205
+    [m] Compressor inlet shroud radius : 0.036369794043053766
+    [m^2] Compressor outlet axial projected exit area : 0.0018045954198577787
+    [m^2] Compressor outlet equivalent shaft-normal section annulus area : 0.0054852603816136778
+    [m] Compressor outlet equivalent shaft-normal section hub radius : 0.049194522307381271
+    [m] Compressor outlet equivalent shaft-normal section mean radius : 0.056869980410097193
+    [m] Compressor outlet equivalent shaft-normal section radial span : 0.015350916205431851
+    [m] Compressor outlet equivalent shaft-normal section shroud radius : 0.064545438512813122
+    [m^2] Compressor outlet flow-normal area : 0.0031462161021435539
+    [m] Compressor outlet flow-normal passage width : 0.0088049238118351279
+    [m] Compressor outlet hub axial offset from midpoint : 0.0036062856701367836
+    [m] Compressor outlet hub radius : 0.054344831998929768
+    [m] Compressor outlet mean radius : 0.0568699804100972
+    [m] Compressor outlet optimizer reference hub radius : 0.052467518504179633
+    [m] Compressor outlet optimizer reference shroud radius : 0.061272442316014766
+    [m] Compressor outlet radial span : 0.0050502968223348627
+    [m] Compressor outlet shroud axial offset from midpoint : -0.0036062856701367836
+    [m] Compressor outlet shroud radius : 0.059395128821264631
   -- Blading flow angles --
     [deg] Compressor inlet alpha signed (hub) : 0
     [deg] Compressor inlet alpha signed (mean) : 0
     [deg] Compressor inlet alpha signed (shroud) : 0
-    [deg] Compressor inlet beta signed (hub) : -39.779090337037751
-    [deg] Compressor inlet beta signed (mean) : -53.608924289733693
-    [deg] Compressor inlet beta signed (shroud) : -62.004316338457421
-    [deg] Compressor outlet alpha signed (hub) : 71.92843286281304
-    [deg] Compressor outlet alpha signed (mean) : 71.196934000096988
-    [deg] Compressor outlet alpha signed (shroud) : 70.471739674032904
+    [deg] Compressor inlet beta signed (hub) : -38.598607277151679
+    [deg] Compressor inlet beta signed (mean) : -53.47500625965867
+    [deg] Compressor inlet beta signed (shroud) : -62.267918765966499
+    [deg] Compressor outlet alpha signed (hub) : 73.292784968755839
+    [deg] Compressor outlet alpha signed (mean) : 72.562586049477517
+    [deg] Compressor outlet alpha signed (shroud) : 71.838186342963468
     [deg] Compressor outlet assumed meridional exit angle : 55
-    [deg] Compressor outlet beta signed (hub) : -65.243660315429395
-    [deg] Compressor outlet beta signed (mean) : -68.384698317244869
-    [deg] Compressor outlet beta signed (shroud) : -70.782166405484716
+    [deg] Compressor outlet beta signed (hub) : -66.820365527689262
+    [deg] Compressor outlet beta signed (mean) : -69.994946662781487
+    [deg] Compressor outlet beta signed (shroud) : -72.363268806710764
   -- Speeds and velocity triangles --
-    [m/s] Compressor inlet axial velocity (hub) : 189.00873610535643
-    [m/s] Compressor inlet axial velocity (mean) : 189.00873610535643
-    [m/s] Compressor inlet axial velocity (shroud) : 189.00873610535643
-    [m/s] Compressor inlet blade speed (hub) : 157.35931824121934
-    [m/s] Compressor inlet blade speed (mean) : 256.44883154348355
-    [m/s] Compressor inlet blade speed (shroud) : 355.53834484574776
+    [m/s] Compressor inlet axial velocity (hub) : 185.88554649922028
+    [m/s] Compressor inlet axial velocity (mean) : 185.88554649922028
+    [m/s] Compressor inlet axial velocity (shroud) : 185.88554649922028
+    [m/s] Compressor inlet blade speed (hub) : 148.38308451058936
+    [m/s] Compressor inlet blade speed (mean) : 250.9808522103236
+    [m/s] Compressor inlet blade speed (shroud) : 353.57861991005791
     [m/s] Compressor inlet swirl (hub) : 0
     [m/s] Compressor inlet swirl (mean) : 0
     [m/s] Compressor inlet swirl (shroud) : 0
-    [m/s] Compressor outlet axial velocity (hub) : 57.840060211152291
-    [m/s] Compressor outlet axial velocity (mean) : 57.840060211152291
-    [m/s] Compressor outlet axial velocity (shroud) : 57.840060211152291
-    [m/s] Compressor outlet blade speed (hub) : 527.72042848465981
-    [m/s] Compressor outlet blade speed (mean) : 550.66360617693942
-    [m/s] Compressor outlet blade speed (shroud) : 573.60678386921916
-    [m/s] Compressor outlet meridional velocity (hub) : 100.84106763366482
-    [m/s] Compressor outlet meridional velocity (mean) : 100.84106763366482
-    [m/s] Compressor outlet meridional velocity (shroud) : 100.84106763366482
-    [m/s] Compressor outlet radial velocity (hub) : 82.604166700401024
-    [m/s] Compressor outlet radial velocity (mean) : 82.604166700401024
-    [m/s] Compressor outlet radial velocity (shroud) : 82.604166700401024
-    [m/s] Compressor outlet swirl (hub) : 309.04288697810796
-    [m/s] Compressor outlet swirl (mean) : 296.16673937921337
-    [m/s] Compressor outlet swirl (shroud) : 284.32063448783606
-    [rad/s] Compressor shaft speed : 10490.62121608129
-    [rpm] Compressor shaft speed : 100178.05335864286
+    [m/s] Compressor outlet axial velocity (hub) : 53.472757096507614
+    [m/s] Compressor outlet axial velocity (mean) : 53.472757096507614
+    [m/s] Compressor outlet axial velocity (shroud) : 53.472757096507614
+    [m/s] Compressor outlet blade speed (hub) : 528.3277291776534
+    [m/s] Compressor outlet blade speed (mean) : 552.87663064329638
+    [m/s] Compressor outlet blade speed (shroud) : 577.42553210893936
+    [m/s] Compressor outlet meridional velocity (hub) : 93.22690701293152
+    [m/s] Compressor outlet meridional velocity (mean) : 93.22690701293152
+    [m/s] Compressor outlet meridional velocity (shroud) : 93.22690701293152
+    [m/s] Compressor outlet radial velocity (hub) : 76.367011462382607
+    [m/s] Compressor outlet radial velocity (mean) : 76.367011462382607
+    [m/s] Compressor outlet radial velocity (shroud) : 76.367011462382607
+    [m/s] Compressor outlet swirl (hub) : 310.59935548087026
+    [m/s] Compressor outlet swirl (mean) : 296.80808171312168
+    [m/s] Compressor outlet swirl (shroud) : 284.18946347230707
+    [rad/s] Compressor shaft speed : 9721.7658008043509
+    [rpm] Compressor shaft speed : 92836.024966785044
   -- Flow/work coefficients and aerodynamic parameters --
-    [] Compressor diffusion factor : 0.55000000005905347
-    [] Compressor flow coefficient : 0.11505650183243865
-    [] Compressor specific diameter : 3.0023712551802442
-    [] Compressor specific speed : 0.32114092498712099
-    [] Compressor work coefficient : 1.0756721020130351
+    [] Compressor diffusion factor : 0.54999999999999483
+    [] Compressor flow coefficient : 0.11329204476741225
+    [] Compressor specific diameter : 3.0242637471801666
+    [] Compressor specific speed : 0.3191108672952368
+    [] Compressor work coefficient : 1.0736864799938186
   -- Mach numbers --
-    [] Compressor inlet relative tip Mach : 1.2000000001818951
-    [] Compressor outlet absolute mean Mach : 0.76929684725591829
-    [] Compressor outlet relative mean Mach : 0.67311408294010144
+    [] Compressor inlet relative tip Mach : 1.18925043041334
+    [] Compressor outlet absolute mean Mach : 0.76353467054574675
+    [] Compressor outlet relative mean Mach : 0.66881530087906227
   -- Power, flow and other quantities --
-    [W] Compressor absorbed power : 90856.868090060379
+    [W] Compressor absorbed power : 106640.16500584257
   -- Mass estimates --
-    [kg] Compressor mass estimate : 0.52178568187839069
-    [kg] Compressor prismatic mass : 0.25262014894015827
+    [kg] Compressor mass estimate : 0.65650056749565922
+    [kg] Compressor prismatic mass : 0.33885705712655023
 
 === Combustor ===
   -- Radii, areas and layout dimensions --
-    [m] Combustor axial length (mass-model heuristic) : 0.12449139733152692
-    [m^2] Combustor liner (rough) annulus area : 0.0075418168773895601
-    [m] Combustor liner (rough) hub radius : 0.039228414543582009
-    [m] Combustor liner (rough) mean radius : 0.050996938906656616
-    [m] Combustor liner (rough) radial span : 0.023537048726149208
-    [m] Combustor liner (rough) shroud radius : 0.062765463269731217
-    [m^3] Combustor liner enclosed volume (rough) : 0.00093889132148471935
+    [m] Combustor axial length (mass-model heuristic) : 0.12419066086464074
+    [m^2] Combustor liner (rough) annulus area : 0.0089656116480142465
+    [m] Combustor liner (rough) hub radius : 0.042771327138149948
+    [m] Combustor liner (rough) mean radius : 0.055602725279594936
+    [m] Combustor liner (rough) radial span : 0.025662796282889977
+    [m] Combustor liner (rough) shroud radius : 0.068434123421039925
+    [m^3] Combustor liner enclosed volume (rough) : 0.00111344523562261
     [m] Combustor liner thickness (mass-model assumption) : 0.00064999999999999997
-    [m] Combustor outer radial allowance to casing : 0.015691365817432801
+    [m] Combustor outer radial allowance to casing : 0.017108530855259971
   -- Mach numbers --
-    [m/s] Combustor hot bulk speed (low-Mach estimate) : 63.127814948023662
-    [s] Combustor hot residence time (low-Mach estimate) : 0.0019720530076009603
+    [m/s] Combustor hot bulk speed (low-Mach estimate) : 61.414698505814215
+    [s] Combustor hot residence time (low-Mach estimate) : 0.0020221651149664676
   -- Power, flow and other quantities --
-    [kg/s] Combustor air mass flow : 0.53481839544922782
-    [kg/s] Combustor hot gas mass flow : 0.54415963495722852
+    [kg/s] Combustor air mass flow : 0.62386135778286789
+    [kg/s] Combustor hot gas mass flow : 0.63471282456769595
   -- Mass estimates --
-    [kg] Combustor liner mass estimate : 0.41485531414960031
+    [kg] Combustor liner mass estimate : 0.4512302682383722
 
 === HPT ===
   -- Radii, areas and layout dimensions --
-    [m] HPT coefficient reference radius : 0.034105284087274985
-    [m] HPT hub radius change (inlet-outlet) : 0.007059360259864908
-    [m^2] HPT inlet annulus area : 0.0027883901849195523
-    [m] HPT inlet hub radius : 0.031079445227870071
-    [m] HPT inlet mean radius : 0.037065893186460919
-    [m] HPT inlet radial span : 0.011972895917181699
-    [m] HPT inlet shroud radius : 0.04305234114505177
-    [m^2] HPT outlet annulus area : 0.0027883901849127695
-    [m] HPT outlet hub radius : 0.024020084968005163
-    [m] HPT outlet mean radius : 0.031144674988089052
-    [m] HPT outlet radial span : 0.014249180040167782
-    [m] HPT outlet shroud radius : 0.038269265008172945
-    [m] HPT rotor axial chord (rough AR 1.5) : 0.00874069198578316
-    [m] HPT shroud radius change (inlet-outlet) : 0.0047830761368788249
+    [m] HPT coefficient reference radius : 0.036835254412673483
+    [m] HPT hub radius change (inlet-outlet) : 0.0084170979175041613
+    [m^2] HPT inlet annulus area : 0.0032300185055257479
+    [m] HPT inlet hub radius : 0.033981496011443936
+    [m] HPT inlet mean radius : 0.040351446272475569
+    [m] HPT inlet radial span : 0.012739900522063266
+    [m] HPT inlet shroud radius : 0.046721396533507202
+    [m^2] HPT outlet annulus area : 0.0032468755938605686
+    [m] HPT outlet hub radius : 0.025564398093939775
+    [m] HPT outlet mean radius : 0.033319062552871398
+    [m] HPT outlet radial span : 0.015509328917863247
+    [m] HPT outlet shroud radius : 0.041073727011803021
+    [m] HPT rotor axial chord (rough AR 1.5) : 0.0094164098133088375
+    [m] HPT shroud radius change (inlet-outlet) : 0.0056476695217041809
   -- Blading flow angles --
-    [deg] HPT NGV exit angle (hub) : 65.78326872014425
-    [deg] HPT NGV exit angle (mean) : 61.790790676550877
-    [deg] HPT NGV exit angle (tip) : 58.075622179615699
-    [deg] HPT rotor inlet alpha signed (hub) : 65.47288183383948
-    [deg] HPT rotor inlet alpha signed (mean) : 61.445454011948065
-    [deg] HPT rotor inlet alpha signed (shroud) : 57.703837580051221
-    [deg] HPT rotor inlet angle (hub) : 37.512590939307785
-    [deg] HPT rotor inlet angle (mean) : 7.9392341470661094
-    [deg] HPT rotor inlet angle (tip) : -21.321816810833404
-    [deg] HPT rotor inlet beta signed (hub) : 37.512590939307785
-    [deg] HPT rotor inlet beta signed (mean) : 7.9392341470661094
-    [deg] HPT rotor inlet beta signed (shroud) : -21.321816810833404
+    [deg] HPT NGV exit angle (hub) : 65.691426410526788
+    [deg] HPT NGV exit angle (mean) : 61.792237583469934
+    [deg] HPT NGV exit angle (tip) : 58.157981955445386
+    [deg] HPT rotor inlet alpha signed (hub) : 65.380105873525252
+    [deg] HPT rotor inlet alpha signed (mean) : 61.446847817642144
+    [deg] HPT rotor inlet alpha signed (shroud) : 57.786647390708886
+    [deg] HPT rotor inlet angle (hub) : 36.340375736941041
+    [deg] HPT rotor inlet angle (mean) : 6.8437753014523617
+    [deg] HPT rotor inlet angle (tip) : -21.884826938088217
+    [deg] HPT rotor inlet beta signed (hub) : 36.340375736941041
+    [deg] HPT rotor inlet beta signed (mean) : 6.8437753014523617
+    [deg] HPT rotor inlet beta signed (shroud) : -21.884826938088217
     [deg] HPT rotor outlet alpha signed (hub) : 0
     [deg] HPT rotor outlet alpha signed (mean) : 0
     [deg] HPT rotor outlet alpha signed (shroud) : 0
-    [deg] HPT rotor outlet angle (hub) : 36.26517608690753
-    [deg] HPT rotor outlet angle (mean) : 43.568572427299955
-    [deg] HPT rotor outlet angle (tip) : 49.451528061458006
-    [deg] HPT rotor outlet beta signed (hub) : -36.26517608690753
-    [deg] HPT rotor outlet beta signed (mean) : -43.568572427299955
-    [deg] HPT rotor outlet beta signed (shroud) : -49.451528061458006
+    [deg] HPT rotor outlet angle (hub) : 35.96035023167461
+    [deg] HPT rotor outlet angle (mean) : 43.39698927688319
+    [deg] HPT rotor outlet angle (tip) : 49.373321711735656
+    [deg] HPT rotor outlet beta signed (hub) : -35.96035023167461
+    [deg] HPT rotor outlet beta signed (mean) : -43.39698927688319
+    [deg] HPT rotor outlet beta signed (shroud) : -49.373321711735656
   -- Speeds and velocity triangles --
-    [m/s] HPT NGV exit axial velocity (hub) : 225.70630558912808
-    [m/s] HPT NGV exit axial velocity (mean) : 225.70630558912808
-    [m/s] HPT NGV exit axial velocity (tip) : 225.70630558912808
-    [m/s] HPT NGV exit swirl (hub) : 501.82732663197135
-    [m/s] HPT NGV exit swirl (mean) : 420.77806768201032
-    [m/s] HPT NGV exit swirl (tip) : 362.26868265674807
-    [m/s] HPT outlet axial velocity : 343.47419192166615
-    [m/s] HPT rotor inlet axial velocity (hub) : 228.98279466305385
-    [m/s] HPT rotor inlet axial velocity (mean) : 228.98279466305385
-    [m/s] HPT rotor inlet axial velocity (tip) : 228.98279466305385
-    [rad/s] HPT shaft speed : 10490.62121608129
-    [rpm] HPT shaft speed : 100178.05335864286
+    [m/s] HPT NGV exit axial velocity (hub) : 225.11283474083569
+    [m/s] HPT NGV exit axial velocity (mean) : 225.11283474083569
+    [m/s] HPT NGV exit axial velocity (tip) : 225.11283474083569
+    [m/s] HPT NGV exit swirl (hub) : 498.37081288021062
+    [m/s] HPT NGV exit swirl (mean) : 419.69712004253176
+    [m/s] HPT NGV exit swirl (tip) : 362.47601841189385
+    [m/s] HPT outlet axial velocity : 342.57198259392766
+    [m/s] HPT rotor inlet axial velocity (hub) : 228.3813217292815
+    [m/s] HPT rotor inlet axial velocity (mean) : 228.3813217292815
+    [m/s] HPT rotor inlet axial velocity (tip) : 228.3813217292815
+    [rad/s] HPT shaft speed : 9721.7658008043509
+    [rpm] HPT shaft speed : 92836.024966785044
   -- Flow/work coefficients and aerodynamic parameters --
-    [] HPT degree of reaction : 0.48454003537652046
-    [] HPT flow coefficient : 0.79999999952821665
-    [] HPT work coefficient : 1.2781535060139446
-    [] Turbine flow coefficient : 0.79999999952821665
-    [] Turbine work coefficient : 1.2781535060139446
+    [] HPT degree of reaction : 0.48884096188627868
+    [] HPT flow coefficient : 0.79718986125483837
+    [] HPT work coefficient : 1.2838745564788512
+    [] Turbine flow coefficient : 0.79718986125483837
+    [] Turbine work coefficient : 1.2838745564788512
   -- Mach numbers --
-    [] HPT NGV exit Mach (hub) : 0.8987294661105214
-    [] HPT NGV exit Mach (mean) : 0.76625691111053995
-    [] HPT NGV exit Mach (shroud) : 0.67779539179558312
-    [] HPT inlet relative Mach (hub) : 0.47454545546846777
-    [] HPT inlet relative Mach (mean) : 0.37331950712492917
-    [] HPT inlet relative Mach (shroud) : 0.3927007024875786
-    [] HPT outlet relative Mach (hub) : 0.72564894544077518
-    [] HPT outlet relative Mach (mean) : 0.80751085286837609
-    [] HPT outlet relative Mach (shroud) : 0.89999999969672262
+    [] HPT NGV exit Mach (hub) : 0.89323137168967059
+    [] HPT NGV exit Mach (mean) : 0.76476897050689696
+    [] HPT NGV exit Mach (shroud) : 0.67816649369318072
+    [] HPT inlet relative Mach (hub) : 0.46608756139613755
+    [] HPT inlet relative Mach (mean) : 0.37164753572167225
+    [] HPT inlet relative Mach (shroud) : 0.3935316753169279
+    [] HPT outlet relative Mach (hub) : 0.7219329846744712
+    [] HPT outlet relative Mach (mean) : 0.80421263565082191
+    [] HPT outlet relative Mach (shroud) : 0.89744236413616585
   -- Power, flow and other quantities --
-    [W] HPT extracted power : 90856.868090060379
-    [kg/s] HPT rotor mass flow : 0.55530168486242082
-    [N m] HPT shaft torque : 8.6607710085637262
+    [W] HPT extracted power : 106640.16500584256
+    [kg/s] HPT rotor mass flow : 0.64770993618817241
+    [N m] HPT shaft torque : 10.969217649433549
   -- Mass estimates --
-    [kg] HPT mass estimate : 0.3310136439752609
-    [kg] HPT prismatic mass : 0.3310136439752609
+    [kg] HPT mass estimate : 0.4107838984196549
+    [kg] HPT prismatic mass : 0.4107838984196549
 
 === LPT ===
   -- Radii, areas and layout dimensions --
-    [m] LPT coefficient reference radius : 0.064069196927936764
-    [m] LPT hub radius change (inlet-outlet) : -0.0051177153574499118
-    [m^2] LPT inlet annulus area : 0.0072649864047915156
-    [m] LPT inlet hub radius : 0.053582388184109958
-    [m] LPT inlet mean radius : 0.062789768088633721
-    [m] LPT inlet radial span : 0.018414759809047526
-    [m] LPT inlet shroud radius : 0.071997147993157484
-    [m] LPT inlet tip radius : 0.071997147993157484
-    [m^2] LPT outlet annulus area : 0.0054597335450683737
-    [m] LPT outlet hub radius : 0.05870010354155987
-    [m] LPT outlet mean radius : 0.065348625767239807
-    [m] LPT outlet radial span : 0.013297044451359874
-    [m] LPT outlet shroud radius : 0.071997147992919744
-    [m] LPT outlet tip radius : 0.071997147992919744
-    [m] LPT rotor axial chord (rough AR 1.5) : 0.0105706014201358
-    [m] LPT shroud radius change (inlet-outlet) : 2.3774038293566946e-13
+    [m] LPT coefficient reference radius : 0.06078170078864481
+    [m] LPT hub radius change (inlet-outlet) : -0.0093730773137022938
+    [m^2] LPT inlet annulus area : 0.0080842624228256669
+    [m] LPT inlet hub radius : 0.046408338807874649
+    [m] LPT inlet mean radius : 0.057580885952336833
+    [m] LPT inlet radial span : 0.022345094288924366
+    [m] LPT inlet shroud radius : 0.068753433096799016
+    [m] LPT inlet tip radius : 0.068753433096799016
+    [m^2] LPT outlet annulus area : 0.0065939136657987753
+    [m] LPT outlet hub radius : 0.055781416121576943
+    [m] LPT outlet mean radius : 0.063982515624952788
+    [m] LPT outlet radial span : 0.016402199006751689
+    [m] LPT outlet shroud radius : 0.072183615128328632
+    [m] LPT outlet tip radius : 0.072183615128328632
+    [m] LPT rotor axial chord (rough AR 1.5) : 0.012915764431892018
+    [m] LPT shroud radius change (inlet-outlet) : -0.0034301820315296161
     [m] LPT-to-fan seal radial gap : 0.0031000000000000055
   -- Blading flow angles --
-    [deg] LPT NGV exit angle (hub) : 70.427378314166575
-    [deg] LPT NGV exit angle (mean) : 67.381380138309225
-    [deg] LPT NGV exit angle (tip) : 64.464482635600973
-    [deg] LPT NGV mean angle : 67.381380138309225
-    [deg] LPT rotor inlet alpha signed (hub) : 70.31195931425799
-    [deg] LPT rotor inlet alpha signed (mean) : 67.251594614781879
-    [deg] LPT rotor inlet alpha signed (shroud) : 64.322320706858392
-    [deg] LPT rotor inlet angle (hub) : 56.096822165128941
-    [deg] LPT rotor inlet angle (mean) : 40.484660230737965
-    [deg] LPT rotor inlet angle (tip) : 17.956227141627533
-    [deg] LPT rotor inlet beta signed (hub) : 56.096822165128941
-    [deg] LPT rotor inlet beta signed (mean) : 40.484660230737965
-    [deg] LPT rotor inlet beta signed (shroud) : 17.956227141627533
-    [deg] LPT rotor inlet mean angle : 40.484660230737965
+    [deg] LPT NGV exit angle (hub) : 68.783771562506999
+    [deg] LPT NGV exit angle (mean) : 64.281865432889248
+    [deg] LPT NGV exit angle (tip) : 60.096171324611674
+    [deg] LPT NGV mean angle : 64.281865432889248
+    [deg] LPT rotor inlet alpha signed (hub) : 68.663167481918421
+    [deg] LPT rotor inlet alpha signed (mean) : 64.142150723710088
+    [deg] LPT rotor inlet alpha signed (shroud) : 59.94178645258139
+    [deg] LPT rotor inlet angle (hub) : 55.195513355546368
+    [deg] LPT rotor inlet angle (mean) : 33.895941727119215
+    [deg] LPT rotor inlet angle (tip) : 3.8105138681501214
+    [deg] LPT rotor inlet beta signed (hub) : 55.195513355546368
+    [deg] LPT rotor inlet beta signed (mean) : 33.895941727119215
+    [deg] LPT rotor inlet beta signed (shroud) : 3.8105138681501214
+    [deg] LPT rotor inlet mean angle : 33.895941727119215
     [deg] LPT rotor outlet alpha signed (hub) : 0
     [deg] LPT rotor outlet alpha signed (mean) : 0
     [deg] LPT rotor outlet alpha signed (shroud) : 0
-    [deg] LPT rotor outlet angle (hub) : 43.662623394316256
-    [deg] LPT rotor outlet angle (mean) : 46.734849092742969
-    [deg] LPT rotor outlet angle (tip) : 49.493072931013067
-    [deg] LPT rotor outlet beta signed (hub) : -43.662623394316256
-    [deg] LPT rotor outlet beta signed (mean) : -46.734849092742969
-    [deg] LPT rotor outlet beta signed (shroud) : -49.493072931013067
-    [deg] LPT rotor outlet mean angle : 46.734849092742969
+    [deg] LPT rotor outlet angle (hub) : 44.955755222030909
+    [deg] LPT rotor outlet angle (mean) : 48.873503212424282
+    [deg] LPT rotor outlet angle (tip) : 52.261362272208835
+    [deg] LPT rotor outlet beta signed (hub) : -44.955755222030909
+    [deg] LPT rotor outlet beta signed (mean) : -48.873503212424282
+    [deg] LPT rotor outlet beta signed (shroud) : -52.261362272208835
+    [deg] LPT rotor outlet mean angle : 48.873503212424282
   -- Speeds and velocity triangles --
-    [m/s] LPT NGV exit axial velocity (hub) : 131.69047522369732
-    [m/s] LPT NGV exit axial velocity (mean) : 131.69047522369732
-    [m/s] LPT NGV exit axial velocity (tip) : 131.69047522369732
-    [m/s] LPT NGV exit swirl (hub) : 370.3897863964155
-    [m/s] LPT NGV exit swirl (mean) : 316.07648695416856
-    [m/s] LPT NGV exit swirl (tip) : 275.65493727624431
-    [m/s] LPT inlet axial velocity : 132.53152745919104
-    [m/s] LPT inlet swirl : 316.07648695416856
-    [m/s] LPT outlet axial velocity : 198.79729119235606
-    [m/s] LPT rotor inlet axial velocity (hub) : 132.53152745919104
-    [m/s] LPT rotor inlet axial velocity (mean) : 132.53152745919104
-    [m/s] LPT rotor inlet axial velocity (tip) : 132.53152745919104
-    [rad/s] LPT shaft speed : 3232.138400881468
-    [rpm] LPT shaft speed : 30864.648195445177
+    [m/s] LPT NGV exit axial velocity (hub) : 133.00799045988285
+    [m/s] LPT NGV exit axial velocity (mean) : 133.00799045988285
+    [m/s] LPT NGV exit axial velocity (tip) : 133.00799045988285
+    [m/s] LPT NGV exit swirl (hub) : 342.62719969065859
+    [m/s] LPT NGV exit swirl (mean) : 276.14648342158932
+    [m/s] LPT NGV exit swirl (tip) : 231.27222091805197
+    [m/s] LPT inlet axial velocity : 133.83856534279892
+    [m/s] LPT inlet swirl : 276.14648342158932
+    [m/s] LPT outlet axial velocity : 180.68356668984163
+    [m/s] LPT rotor inlet axial velocity (hub) : 133.83856534279892
+    [m/s] LPT rotor inlet axial velocity (mean) : 133.83856534279892
+    [m/s] LPT rotor inlet axial velocity (tip) : 133.83856534279892
+    [rad/s] LPT shaft speed : 3234.1367544806185
+    [rpm] LPT shaft speed : 30883.731066646196
   -- Flow/work coefficients and aerodynamic parameters --
-    [] LPT degree of reaction : 0.30000000025855189
-    [] LPT flow coefficient : 0.79999999981763825
-    [] LPT work coefficient : 1.4958655446435294
+    [] LPT degree of reaction : 0.30500576003514857
+    [] LPT flow coefficient : 0.80000000000000238
+    [] LPT work coefficient : 1.3308030368660695
   -- Mach numbers --
-    [] LPT NGV exit Mach : 0.5831634547279807
-    [] LPT NGV exit Mach (hub) : 0.676121985220272
-    [] LPT NGV exit Mach (mean) : 0.5831634547279807
-    [] LPT NGV exit Mach (shroud) : 0.5170656253468171
-    [] LPT exit relative Mach : 0.50189719966338553
-    [] LPT inlet relative Mach : 0.2974931900986435
-    [] LPT inlet relative Mach (hub) : 0.40968776104811505
-    [] LPT inlet relative Mach (mean) : 0.2974931900986435
-    [] LPT inlet relative Mach (shroud) : 0.23636965775331958
-    [] LPT outlet absolute Mach : 0.34398808022752764
-    [] LPT outlet relative Mach (hub) : 0.47550410650227709
-    [] LPT outlet relative Mach (mean) : 0.50189719966338553
-    [] LPT outlet relative Mach (shroud) : 0.52958723484404924
+    [] LPT NGV exit Mach : 0.51965302988898388
+    [] LPT NGV exit Mach (hub) : 0.6298737048377423
+    [] LPT NGV exit Mach (mean) : 0.51965302988898388
+    [] LPT NGV exit Mach (shroud) : 0.4496702552502439
+    [] LPT exit relative Mach : 0.47197350908089364
+    [] LPT inlet relative Mach : 0.27402363666424306
+    [] LPT inlet relative Mach (hub) : 0.40284177491738382
+    [] LPT inlet relative Mach (mean) : 0.27402363666424306
+    [] LPT inlet relative Mach (shroud) : 0.22661643205987211
+    [] LPT outlet absolute Mach : 0.31042814642940697
+    [] LPT outlet relative Mach (hub) : 0.43867307482225715
+    [] LPT outlet relative Mach (mean) : 0.47197350908089364
+    [] LPT outlet relative Mach (shroud) : 0.50718542222623786
   -- Power, flow and other quantities --
-    [W] LPT extracted power : 35977.859960958827
-    [kg/s] LPT rotor mass flow : 0.56087270981501691
-    [N m] LPT-to-fan transmitted torque : 11.131286937201375
+    [W] LPT extracted power : 33642.821939667716
+    [kg/s] LPT rotor mass flow : 0.65420849199841058
+    [N m] LPT-to-fan transmitted torque : 10.402411676951656
   -- Mass estimates --
-    [kg] LPT NGV mass estimate : 1.5044032933411318
-    [kg] LPT mass estimate : 0.7308981216511633
+    [kg] LPT NGV mass estimate : 1.371900034101238
+    [kg] LPT mass estimate : 0.63137429545823409
 
 === Aft fan ===
   -- Radii, areas and layout dimensions --
-    [m] Fan hub radius : 0.075097147992919749
-    [m^2] Fan inlet coupled geometry annulus area : 0.017225106354814963
-    [m] Fan inlet coupled geometry hub radius : 0.07509714799315749
-    [m] Fan inlet coupled geometry mean radius : 0.090280213644922308
-    [m] Fan inlet coupled geometry radial span : 0.03036613130352965
-    [m] Fan inlet coupled geometry shroud radius : 0.10546327929668714
-    [m^2] Fan mass-flow reference area : 0.017225106354927137
-    [m] Fan nozzle exit hub radius (assumed) : 0.075097147992919749
-    [m] Fan nozzle exit shroud radius (inferred) : 0.11041914551181174
-    [m^2] Fan nozzle fully expanded exit area (cycle) : 0.020586247375001747
-    [m^2] Fan outlet annulus area : 0.017225106354927137
-    [m] Fan outlet hub radius : 0.075097147992919749
-    [m] Fan outlet mean radius : 0.090280213644803445
-    [m] Fan outlet radial span : 0.030366131303767391
-    [m] Fan outlet shroud radius : 0.10546327929668714
-    [m] Fan tip radius : 0.10546327929668714
+    [m] Fan hub radius : 0.075283615128328638
+    [m^2] Fan inlet coupled geometry annulus area : 0.015549050736929096
+    [m] Fan inlet coupled geometry hub radius : 0.071853433096799021
+    [m] Fan inlet coupled geometry mean radius : 0.086206763331726138
+    [m] Fan inlet coupled geometry radial span : 0.028706660469854248
+    [m] Fan inlet coupled geometry shroud radius : 0.10056009356665327
+    [m^2] Fan mass-flow reference area : 0.013963467376496728
+    [m] Fan nozzle exit hub radius (assumed) : 0.075283615128328638
+    [m] Fan nozzle exit shroud radius (inferred) : 0.10265940187311717
+    [m^2] Fan nozzle fully expanded exit area (cycle) : 0.015303734811878189
+    [m^2] Fan outlet annulus area : 0.013963467376496728
+    [m] Fan outlet hub radius : 0.075283615128328638
+    [m] Fan outlet mean radius : 0.087921854347490946
+    [m] Fan outlet radial span : 0.025276478438324632
+    [m] Fan outlet shroud radius : 0.10056009356665327
+    [m] Fan tip radius : 0.10056009356665327
   -- Blading flow angles --
     [deg] Fan inlet alpha signed (hub) : 0
     [deg] Fan inlet alpha signed (mean) : 0
     [deg] Fan inlet alpha signed (shroud) : 0
-    [deg] Fan inlet beta signed (hub) : -52.085908866676185
-    [deg] Fan inlet beta signed (mean) : -57.061400509363729
-    [deg] Fan inlet beta signed (shroud) : -60.986722924779045
-    [deg] Fan outlet (inferred) alpha signed (hub) : 14.64220464184551
-    [deg] Fan outlet (inferred) alpha signed (mean) : 12.261313633726539
-    [deg] Fan outlet (inferred) alpha signed (shroud) : 10.538841664251455
-    [deg] Fan outlet (inferred) beta signed (hub) : -49.086707925237477
-    [deg] Fan outlet (inferred) beta signed (mean) : -56.02477880939324
-    [deg] Fan outlet (inferred) beta signed (shroud) : -60.963598448152297
+    [deg] Fan inlet beta signed (hub) : -51.294465477281207
+    [deg] Fan inlet beta signed (mean) : -56.261335402776531
+    [deg] Fan inlet beta signed (shroud) : -60.206203194373337
+    [deg] Fan outlet (inferred) alpha signed (hub) : 17.31589470526924
+    [deg] Fan outlet (inferred) alpha signed (mean) : 14.946820818714638
+    [deg] Fan outlet (inferred) alpha signed (shroud) : 13.137872745871999
+    [deg] Fan outlet (inferred) beta signed (hub) : -48.89283391046277
+    [deg] Fan outlet (inferred) beta signed (mean) : -55.139522562739344
+    [deg] Fan outlet (inferred) beta signed (shroud) : -59.737291313482082
   -- Speeds and velocity triangles --
-    [m/s] Fan inlet axial velocity (hub) : 189.05166116797329
-    [m/s] Fan inlet axial velocity (mean) : 189.05166116797329
-    [m/s] Fan inlet axial velocity (shroud) : 189.05166116797329
-    [m/s] Fan inlet blade speed (hub) : 242.72437582536298
-    [m/s] Fan inlet blade speed (mean) : 291.79814536153646
-    [m/s] Fan inlet blade speed (shroud) : 340.87191489770998
+    [m/s] Fan inlet axial velocity (hub) : 186.21141105416828
+    [m/s] Fan inlet axial velocity (mean) : 186.21141105416828
+    [m/s] Fan inlet axial velocity (shroud) : 186.21141105416828
+    [m/s] Fan inlet blade speed (hub) : 232.38382891397185
+    [m/s] Fan inlet blade speed (mean) : 278.80446177594757
+    [m/s] Fan inlet blade speed (shroud) : 325.22509463792335
     [m/s] Fan inlet swirl (hub) : 0
     [m/s] Fan inlet swirl (mean) : 0
     [m/s] Fan inlet swirl (shroud) : 0
-    [m/s] Fan nozzle exit speed (cycle) : 136.33989535939253
-    [m/s] Fan outlet (inferred) axial velocity (hub) : 171.51753589896694
-    [m/s] Fan outlet (inferred) axial velocity (mean) : 171.51753589896694
-    [m/s] Fan outlet (inferred) axial velocity (shroud) : 171.51753589896694
-    [m/s] Fan outlet (inferred) blade speed (hub) : 242.72437582459457
-    [m/s] Fan outlet (inferred) blade speed (mean) : 291.79814536115231
-    [m/s] Fan outlet (inferred) blade speed (shroud) : 340.87191489770998
-    [m/s] Fan outlet (inferred) swirl (hub) : 44.811911401431686
-    [m/s] Fan outlet (inferred) swirl (mean) : 37.27557353374327
-    [m/s] Fan outlet (inferred) swirl (shroud) : 31.909179809323774
-    [rad/s] Fan shaft speed : 3232.138400881468
-    [rpm] Fan shaft speed : 30864.648195445177
+    [m/s] Fan nozzle exit speed (cycle) : 147.25787366428469
+    [m/s] Fan outlet (inferred) axial velocity (hub) : 167.01687775753507
+    [m/s] Fan outlet (inferred) axial velocity (mean) : 167.01687775753507
+    [m/s] Fan outlet (inferred) axial velocity (shroud) : 167.01687775753507
+    [m/s] Fan outlet (inferred) blade speed (hub) : 243.47750669670077
+    [m/s] Fan outlet (inferred) blade speed (mean) : 284.35130066731205
+    [m/s] Fan outlet (inferred) blade speed (shroud) : 325.22509463792335
+    [m/s] Fan outlet (inferred) swirl (hub) : 52.070796763025307
+    [m/s] Fan outlet (inferred) swirl (mean) : 44.58593204187676
+    [m/s] Fan outlet (inferred) swirl (shroud) : 38.982440090260162
+    [rad/s] Fan shaft speed : 3234.1367544806185
+    [rpm] Fan shaft speed : 30883.731066646196
   -- Flow/work coefficients and aerodynamic parameters --
-    [] Fan flow coefficient : 0.27340016628582492
-    [] Fan specific speed : 1.8371032891742214
-    [] Fan work coefficient : 0.18722093792267511
+    [] Fan flow coefficient : 0.25166006636697352
+    [] Fan specific speed : 1.4642692025524304
+    [] Fan work coefficient : 0.23972590512217229
   -- Mach numbers --
-    [] Fan relative tip Mach : 1.1616656366209144
+    [] Fan relative tip Mach : 1.1158283798841337
   -- Power, flow and other quantities --
-    [] Bypass ratio : 5.9373597190454985
-    [W] Fan absorbed power : 35977.859960958827
-    [kg/s] Fan air mass flow : 3.307717914734158
+    [] Bypass ratio : 4.0834053655251612
+    [W] Fan absorbed power : 33642.821939667716
+    [kg/s] Fan air mass flow : 2.6536237663691407
     [] Fan efficiency (assumed) : 0.84999999999999998
-    [N] Fan thrust : 450.97391437324313
+    [N] Fan thrust : 390.76699334053023
   -- Mass estimates --
-    [kg] Fan mass estimate : 0.21161043157027989
+    [kg] Fan mass estimate : 0.1715411967202623
 
 === Core nozzle ===
   -- Radii, areas and layout dimensions --
-    [m^2] Core nozzle exit area : 0.0033707415848462426
+    [m^2] Core nozzle exit area : 0.0035668547023401413
     [m] Core nozzle exit hub radius (model) : 0
-    [m] Core nozzle exit shroud radius : 0.032755768503080152
+    [m] Core nozzle exit shroud radius : 0.033695179393141816
   -- Speeds and velocity triangles --
-    [m/s] Core nozzle exit axial velocity : 381.78387679855786
+    [m/s] Core nozzle exit axial velocity : 418.43962097332894
   -- Power, flow and other quantities --
-    [kg/s] Core nozzle mass flow : 0.56644373476761301
-    [] M_7 (core nozzle outlet) : 0.68197709284710639
+    [kg/s] Core nozzle mass flow : 0.66070704780864875
+    [] M_7 (core nozzle outlet) : 0.74958947693561584
 
 === Casing and shaft ===
   -- Radii, areas and layout dimensions --
-    [m] Core casing radius : 0.078456829087164018
+    [m] Core casing radius : 0.085542654276299895
     [m] Core casing thickness (mass-model assumption) : 0.00064999999999999997
-    [m] Overall gas-path envelope diameter : 0.21092655859337428
-    [m] Overall gas-path envelope radius : 0.10546327929668714
-    [m] Shaft length (mass-model assumption) : 0.19698243621612754
+    [m] Overall gas-path envelope diameter : 0.20112018713330654
+    [m] Overall gas-path envelope radius : 0.10056009356665327
+    [m] Shaft length (mass-model assumption) : 0.20106064127473794
     [m] Shaft radius (mass-model assumption) : 0.0050000000000000001
 
 === Diagnostic residuals and validity ===
   -- Power, flow and other quantities --
     [W] Bearing cooling cycle energy residual : -1.1641532182693481e-10
-    [kg/s] Bearing cooling mass residual : 1.1102230246251565e-16
+    [kg/s] Bearing cooling mass residual : 0
     [0/1] Fan inferred outlet velocity valid : 1
     [0/1] HPT free-vortex span valid : 1
-    [] HPT radius migration residual : 0.33765457600590543
+    [] HPT radius migration residual : 0.47536987369887984
     [0/1] LPT free-vortex span valid : 1
-    [] LPT radius migration residual : -1.2166876088358985e-11
-Execution time: 155.521 s
+    [] LPT radius migration residual : 0.0034301820315296161
+Execution time: 66.968 s

@@ -620,8 +620,8 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
             if (!turbine_span_mach(lpt_mach,omega_LPT,R_LPTih,R_LPTit,R_LPToh,R_LPTot,
                                   u_LPTith_STAT,u_LPTia,u_LPToa,T_LPTin,T_6,cp_LPT,gamma_LPT,R,u_LPTia_NGV,T_5,cp_HPT,gamma_HPT))
                 return penalty();
-            // con_LPT_migration = (R_LPTih-R_LPToh)*(R_LPTit-R_LPTot)/(0.01*0.01);
-            con_LPT_migration = std::abs(R_LPTit-R_LPTot);
+            con_LPT_migration = (R_LPTih-R_LPToh)*(R_LPTit-R_LPTot)/(0.01*0.01);
+            // con_LPT_migration = std::abs(R_LPTit-R_LPTot);
             M_LPToa = u_LPToa/std::sqrt(gamma_LPT*R*Ts_LPTo);
             beta_LPTom = 180./M_PI*std::atan2(omega_LPT*R_LPTom,u_LPToa);
             // Angle limits remain diagnostic-only for both turbines, as in main.
@@ -683,7 +683,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double R_6 = std::pow((m_dot*(1+f))/(u_6*(Ps_0/(R*Ts_6)))/M_PI,0.5);
         double F_core = m_dot*((1+f)*u_6 - u_0);
         double F = F_core + F_fan;
-        double con_F = 667.233-F; // Thrust at least 100lbf
+        double con_F = 667.233-F; // Thrust at least 150lbf
         // Mass model
         double m_Compressor_conical = std::abs((M_PI*(R_Cih*R_Cih*R_Cih - R_Coh*R_Coh*R_Coh)))*(rho_C/3);
         double m_Compressor_prismatic = (R_Cot - R_Coh)*M_PI*R_Coh*R_Coh
@@ -788,7 +788,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
 
         // Append one geometry heuristic per turbine.
         ret.push_back(0.*con_HPT_migration);
-        if (aft_fan_) ret.push_back(con_LPT_migration);
+        if (aft_fan_) ret.push_back(0.*con_LPT_migration);
 
         if (invalid_ret(ret)) return penalty();
 
