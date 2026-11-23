@@ -84,8 +84,8 @@ struct problem_jet_calc{
         static constexpr double AR = 1.5;
         static constexpr double z_target = 0.85;
         static constexpr double burst_margin  = 1.3;
-        static constexpr double FOS_hpt = 1.11;
-        static constexpr double sigma_UTS = 400e6;
+        static constexpr double FOS_hpt = 1;
+        static constexpr double sigma_UTS = 500e6;
         static constexpr double blade_t_thick_ratio = 0.10;
         static constexpr double scalar_hpt = 5;
         vector_double::size_type get_nec() const;
