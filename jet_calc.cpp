@@ -573,7 +573,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
                 const double den = 1.0 - omega*omega*r_I*r_I*rho_T/sigma;
                 if (!(den > 1e-3)) break;
                 const double inner_rim_area = z_I * r_I / den;
-                const double W_I = 1.25 * z_I;
+                const double W_I = 1.3 * z_I;
                 const double T_I = inner_rim_area / W_I;
                 const double r_lo = r_I + T_I, r_hi = R_Tih - T0;
                 if (!std::isfinite(T_I) || std::min({W0, T0, W_I, T_I}) <= 0.0 || r_lo >= r_hi) break;
@@ -636,6 +636,7 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         // Bottom-up HPT mass (rotor + stator) when valid; otherwise the old envelope estimate.
         double m_Turbine_env = std::max(m_Turbine_conical, m_Turbine_prismatic);
         double m_Turbine = disk_mass_valid ? mass_hpt : m_Turbine_env;
+        //double m_Turbine = m_Turbine_env;
         double approx_m = mass_hpt;
 
         // Diffuser mass proportional to spec speed and component radius squared
