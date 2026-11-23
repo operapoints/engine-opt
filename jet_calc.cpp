@@ -483,7 +483,10 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
         double m_Turbine_prismatic = (R_Tot - R_Toh)*M_PI*R_Tot*R_Tot
             * rho_T; // volume in m^3 -> mass in kg
 
-       //disk mass model
+        // ---------------------------------------------------------------------
+        // HPT bottom-up mass: rotor (disk + blades) + stator/NGV (vanes + ring).
+        // Runs every evaluation (not gated on results_ptr) because it feeds m_Turbine.
+        // ---------------------------------------------------------------------
         double mass_disk = 0, mass_blades = 0, mass_hpt = 0;      // rotor disk, rotor blades, total
         double mass_ring_stat = 0, mass_blades_stat = 0;          // stator ring, stator vanes
         bool disk_mass_valid = false;
@@ -554,8 +557,8 @@ vector_double problem_jet_calc::fitness(const vector_double &x, std::unordered_m
 
                 // ---------- rotor disk sizing ----------
                 const double W0 = c_axial;
-                const double T0 = 0.03 * R_Tih;
-                const double r_I = 0.06 * R_Tih;
+                const double T0 = 0.05 * R_Tih;
+                const double r_I = 0.10 * R_Tih;
                 const double sigma = sigma_UTS / (burst_margin * burst_margin * FOS_hpt);
                 const double sigma_b = 0.5 * rho_T * omega*omega * (R_Tit*R_Tit - R_Tih*R_Tih);
                 const double z_H = W0*T0/R_Tih * (omega*omega*R_Tih*R_Tih*rho_T/sigma
